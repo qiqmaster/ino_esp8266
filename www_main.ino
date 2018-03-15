@@ -4,11 +4,10 @@
 #include <ESP8266WiFi.h>
 #include <map>
 #include <vector>
-#include <functional>
 #define string String
 #include <FS.h>
 const int VERSION_MAJOR = 6,
-          VERSION_MINOR = 3,
+          VERSION_MINOR = 4,
           VERSION_EXTRA = 0;
 /**************************************************************************************
   Utils
@@ -788,6 +787,15 @@ class HTTPConnection
     }
 };
 
+class HTTPServlet
+{
+  public:
+    virtual void service(HTTPConnection& con)
+    {
+      con.send(HTTP_501_NOT_IMPLEMENTED);
+    }
+};
+
 class HTTPServer
 {
   private:
@@ -796,14 +804,7 @@ class HTTPServer
     bool _begin;
     long _change;
     int _mode;
-    std::map<string, std::function<void(HTTPConnection&)>> _handles;
-    const bool check(const string& _path)
-    {
-      if (_handles.size() < 1) return false;
-      for (std::map<string, std::function<void(HTTPConnection&)>>::iterator cur = _handles.begin(); cur != _handles.end(); cur++)
-        if ((*cur).first == _path) return true;
-      return false;
-    }
+    std::map<string, HTTPServlet*> _servlets;
   public:
     void begin()
     {
@@ -812,16 +813,36 @@ class HTTPServer
       _begin = true;
       Serial.println("[HTTP] server started");
     }
-    void on(const string& _path, const std::function<void(HTTPConnection&)>& _func)
+    void end()
+    {
+      if (!_begin) return;
+      _begin = false;
+      if (_current.connected())
+      {
+        _current.flush();
+        _current.stop();
+        _current = WiFiClient();
+      }
+      _server.stop();
+    }
+    const bool check(const string& _path)
+    {
+      if (_servlets.size() < 1) return false;
+      for (std::map<string, HTTPServlet*>::iterator cur = _servlets.begin(); cur != _servlets.end(); cur++)
+        if ((*cur).first == _path) return true;
+      return false;
+    }
+    void on(const string& _path, HTTPServlet* _servlet)
     {
       if (check(_path)) return;
-      _handles.insert(std::pair<string, std::function<void(HTTPConnection&)>>(_path, _func));
+      _servlets.insert(std::pair<string, HTTPServlet*>(_path, _servlet));
       Formatter fmt;
       fmt.add(_path);
-      Serial.println(fmt.format("[HTTP] Registered handle on path '[0]'"));
+      Serial.println(fmt.format("[HTTP] Registered servlet on path '[0]'"));
     }
     void waitFor()
     {
+      if (!_begin) return;
       if (_mode == 0)
       {
         _current = _server.available();
@@ -843,13 +864,18 @@ class HTTPServer
               if (con.status() == 200)
               {
                 Formatter fmt;
-                if (_handles.size() > 0)
+                if (_servlets.size() > 0)
                 {
                   fmt.add(con.path());
                   if (check(con.path()))
                   {
-                    Serial.println(fmt.format("[HTTP] Calling handle on path '[0]'"));
-                    _handles[con.path()](con);
+                    Serial.println(fmt.format("[HTTP] Calling servlet on path '[0]'"));
+                    _servlets[con.path()]->service(con);
+                    if (_current.connected())
+                    {
+                      _current.flush();
+                      _current.stop();
+                    }
                     break;
                   }
                   con.send(HTTP_404_NOT_FOUND);
@@ -886,12 +912,86 @@ class HTTPServer
     }
 };
 /**************************************************************************************
+  Virtuino
+ ********/
+class VirtuinoPin
+{
+  private:
+    int _mode;
+    string _value;
+  public:
+    void mode(const int& _mode)
+    {
+      if (_mode != INPUT && _mode != OUTPUT) return;
+      this->_mode = _mode;
+    }
+    const int mode()
+    {
+      return _mode;
+    }
+    void value(const string _value)
+    {
+      this->_value = _value;
+    }
+    const string value()
+    {
+      return _value;
+    }
+    VirtuinoPin()
+    {
+      _mode = INPUT;
+      _value = string();
+    }
+};
+
+static const string VIRTUINO_PATH = "/virtuino";
+ 
+class Virtuino : public HTTPServlet
+{
+  private:
+    static std::vector<string> pins;
+    string _pass;
+  public:
+    Virtuino(const string& _pass)
+    {
+      this->_pass = _pass;
+    }
+    virtual void service(HTTPConnection& con)
+    {
+      KeyPair secret = con.param("secret");
+      if(secret.size()>1)
+      {
+        con.send("Password parameter must be only one!");
+        return;
+      }
+      if(secret.get(0)!=_pass)
+      {
+        con.send("Incorrect password!");
+        return;
+      }
+      KeyPair cmd = con.param("cmd");
+      if(cmd.size()>1)
+      {
+        con.send("Command parameter must be only one!");
+        return;
+      }
+      if(cmd.get(0).length()<1 || !cmd.get(0).startsWith("!"))
+      {
+        con.send("Invalid command request!");
+        return;
+      }
+      con.send("Hello virtuino!");
+    }
+
+};
+/**************************************************************************************
   Sketch
  ********/
 static const string wlan_ap_ssid = "ESP8266",
                     wlan_ap_pass = "changeme",
                     wlan_sta_ssid = "<sta_ssid>",
-                    wlan_sta_pass = "<sta_password>";
+                    wlan_sta_pass = "<sta_pass>",
+                    virtuino_pass = "1234";
 static const bool   wlan_ap_secure = true,
                     wlan_sta_secure = true,
                     wlan_sta_reconnect = true;
@@ -902,17 +1002,23 @@ static const int    wlan_mode = 0,
 
 HTTPServer _server(80);
 
-void page_root_index(HTTPConnection& con)
+class PageRootIndex: public HTTPServlet
 {
-  if (con.path() != "/index.html")
-  {
-    con.redirect("/index.html");
-    return;
-  }
-  Formatter fmt;
-  fmt.add("It's work!");
-  con.send("text/html", fmt.format("<html><head><title>[0]</title></head><body><h1>[0]</h1></body></html>"));
-}
+  public:
+    virtual void service(HTTPConnection& con)
+    {
+      if (con.path() != "/index.html")
+      {
+        con.redirect("/index.html");
+        return;
+      }
+      Formatter fmt;
+      fmt.add("It's work!");
+      con.send("text/html", fmt.format("<html><head><title>[0]</title></head><body><h1>[0]</h1></body></html>"));
+    }
+};
+PageRootIndex _page_root_index;
+Virtuino* virtuino;
 
 void setup() {
   delay(1000);
@@ -931,6 +1037,7 @@ void setup() {
       fmt.add(_mode == 0 ? wlan_sta_ssid : wlan_ap_ssid);
       fmt.add(_cnt_reconnect + 1);
       Serial.print(fmt.format("[WLAN] Starting WIFI on '[0]' mode ('[1]') #[2] "));
+      WiFi.mode(_mode == 0 ? WIFI_STA : WIFI_AP);
       switch (_mode)
       {
         case 0:
@@ -1015,8 +1122,10 @@ void setup() {
     fmt.add(_mode == 0 ? WiFi.localIP()[3] : WiFi.softAPIP()[3]);
     Serial.println(fmt.format(" ok ([0].[1].[2].[3])"));
     WiFi.printDiag(Serial);
-    _server.on("/", page_root_index);
-    _server.on("/index.html", page_root_index);
+    virtuino = new Virtuino(virtuino_pass);
+    _server.on("/", &_page_root_index);
+    _server.on("/index.html", &_page_root_index);
+    _server.on(VIRTUINO_PATH,virtuino);
     _server.begin();
   }
 }
