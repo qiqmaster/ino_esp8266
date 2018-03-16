@@ -7,9 +7,9 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN   = 6.5,
-                    VERSION_CODE   = 6.62,
+                    VERSION_CODE   = 6.63,
                     VERSION_EXTRA  = 180316;
-static const string VERSION_PREFIX = "-perf";                    
+static const string VERSION_PREFIX = "-perf";
 static const string versionString()
 {
   string out = "v";
@@ -1470,7 +1470,7 @@ void setup() {
 }
 
 long next_update = millis(), next_pause = 5000, //5 sec
-     led_update = millis(), led_next_pause = 1000; //1 sec
+     led_update = millis(), led_next_pause = 10000; //10 sec
 void loop() {
   _server.waitFor();
   /**********************************************
