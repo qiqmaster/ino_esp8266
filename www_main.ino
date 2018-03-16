@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 const double VERSION_MAIN   = 6.5,
-             VERSION_CODE   = 6.2,
+             VERSION_CODE   = 6.4,
              VERSION_EXTRA  = 180316;
 /**************************************************************************************
   Utils
@@ -1028,12 +1028,14 @@ class VirtuinoBoard : public HTTPServlet
       switch (_type)
       {
         case NODEMCU_1_0:
-          _analog_cnt = 1;
-          _digital_cnt = 10;
+          _analog_cnt  = 1;
+          _digital_cnt = 11;
+          _virtual_cnt = 32;
           break;
         default:
-          _analog_cnt = 0;
+          _analog_cnt  = 0;
           _digital_cnt = 0;
+          _virtual_cnt = 0;
           break;
       }
       _apply = true;
@@ -1506,7 +1508,8 @@ void setup() {
   }
 }
 
-long next_update = millis(), next_pause=5000; //5 sec
+long next_update = millis(), next_pause=5000,//5 sec
+     led_update = millis(), led_next_pause = 1000; //1 sec
 void loop() {
   _server.waitFor();
   /**********************************************
@@ -1516,5 +1519,13 @@ void loop() {
   {
     next_update += next_pause;
     VirtuinoBoard::virtualWrite(0,rand() % 255); //0...255
+  }
+  /**********************************************
+    Virtuino Board LED Blink Example, CMD: !V01=?$
+   **********************************************/
+  if(millis()>=led_update)
+  {
+    led_update += led_next_pause;
+    VirtuinoBoard::virtualWrite(1,utils.str2int(VirtuinoBoard::virtualRead(1))==1 ? 0 : 1);
   }
 }
