@@ -6,9 +6,22 @@
 #include <vector>
 #define string String
 #include <FS.h>
-const double VERSION_MAIN   = 6.5,
-             VERSION_CODE   = 6.5,
-             VERSION_EXTRA  = 180316;
+static const double VERSION_MAIN   = 6.5,
+                    VERSION_CODE   = 6.62,
+                    VERSION_EXTRA  = 180316;
+static const string VERSION_PREFIX = "-perf";                    
+static const string versionString()
+{
+  string out = "v";
+  out += VERSION_MAIN;
+  out += "m";
+  out += VERSION_CODE;
+  out += "c";
+  out += VERSION_EXTRA;
+  out += "e";
+  out += VERSION_PREFIX;
+  return out;
+}
 /**************************************************************************************
   Utils
  *******/
@@ -483,11 +496,6 @@ class HTTPConnection
                v = utils.trim(utils.substring(_pair[i], idx + 1, _pair[i].length()));
         if (k.length() > 0 && v.length() > 0)
         {
-          Formatter fmt;
-          fmt.add(_type == QUERY ? "PARAM" : "COOKIE");
-          fmt.add(k);
-          fmt.add(v);
-          Serial.println(fmt.format("[HTTP][REQUEST][[0]] [1]=[2]"));
           if (_type == QUERY)
           {
             std::map<string, KeyPair>::iterator it = _params.find(k);
@@ -515,8 +523,12 @@ class HTTPConnection
         fmt.add(_method);
         fmt.add(_status);
         fmt.add(_uri);
+        fmt.add(_client.remoteIP()[0]);
+        fmt.add(_client.remoteIP()[1]);
+        fmt.add(_client.remoteIP()[2]);
+        fmt.add(_client.remoteIP()[3]);
         _client.print(fmt.format("HTTP/1.1 [1]\r\n"));
-        Serial.println(fmt.format("[HTTP][[0]][[1]] [2]"));
+        Serial.println(fmt.format("[HTTP][[3].[4].[5].[6]][[0]][[1]] [2]"));
         header("Content-Length", utils.int2str(_clen));
         header("Content-Type", _ctype);
         if (_status != HTTP_444_CLOSED_WITHOUT_HEADERS)
@@ -527,7 +539,6 @@ class HTTPConnection
             fmt.add((*cur).first);
             fmt.add((*cur).second);
             _client.print(fmt.format("[0]: [1]\r\n"));
-            Serial.println(fmt.format("[HTTP][RESPONSE][HEADER] [0]: [1]"));
           }
           if (_cookies_out.size() > 0)
             for (std::map<string, Cookie>::iterator cur = _cookies_out.begin(); cur != _cookies_out.end(); cur++)
@@ -545,7 +556,6 @@ class HTTPConnection
               fmt.add((c.expire() > 1000 ? string(c.expire()) : ""));                 //[8]
               fmt.add(c.secure() ? "; secure" : "");                        //[9]
               _client.print(fmt.format("[0]: [1]=[2][3][4][5][6][7][8][9]\r\n"));
-              Serial.println(fmt.format("[HTTP][RESPONSE][HEADER] [0]: [1]=[2][3][4][5][6][7][8][9]"));
             }
         }
         _client.print("\r\n");
@@ -662,7 +672,6 @@ class HTTPConnection
         sendHeaders();
         _client.flush();
         _client.stop();
-        Serial.println("[HTTP] Disconnected");
       }
     }
     void send(const HTTPStatus& _status, const string& _ctype, const string& _content)
@@ -673,10 +682,8 @@ class HTTPConnection
         {
           Formatter fmt;
           fmt.add(_status);
-          fmt.add(VERSION_MAIN);
-          fmt.add(VERSION_CODE);
-          fmt.add(VERSION_EXTRA);
-          send(HTTP_200_OK, "text/html", fmt.format("<html><head><title>Error [0]</title></head><body><h1>Error [0]</h1><hr><i>Arduino HTTPServer v[1]/[2] ([3])</i></body></html>"));
+          fmt.add(versionString());
+          send(HTTP_200_OK, "text/html", fmt.format("<html><head><title>Error [0]</title></head><body><h1>Error [0]</h1><hr><i>Arduino HTTPServer [1]</i></body></html>"));
           return;
         }
         status(_status);
@@ -708,11 +715,6 @@ class HTTPConnection
     {
       this->_client = _client;
       Formatter fmt;
-      fmt.add(_client.remoteIP()[0]);
-      fmt.add(_client.remoteIP()[1]);
-      fmt.add(_client.remoteIP()[2]);
-      fmt.add(_client.remoteIP()[3]);
-      Serial.println(fmt.format("[HTTP] Connected ([0].[1].[2].[3])"));
       _status = HTTP_200_OK;
       _clen = 0;
       _ctype = "text/plain";
@@ -769,9 +771,6 @@ class HTTPConnection
       while ((line = _client.readStringUntil('\r')) != "")
       {
         _client.read();
-        fmt.reset();
-        fmt.add(line);
-        Serial.println(fmt.format("[HTTP][REQUEST][HEADER] [0]"));
         int idx = utils.indexOf(line, ':');
         if (idx < 0)
         {
@@ -909,7 +908,6 @@ class HTTPServer
                   fmt.add(con.path());
                   std::map<string, HTTPServlet*>::iterator it = _servlets.find(con.path());
                   if (it != _servlets.end()) {
-                    Serial.println(fmt.format("[HTTP] Calling servlet on path '[0]'"));
                     HTTPServlet* _servlet = (*it).second;
                     _servlet->service(con);
                     (*it).second = _servlet;
@@ -1003,16 +1001,13 @@ class VirtuinoBoard : public HTTPServlet
 
     void send(const string& _s, HTTPConnection& con)
     {
-      Formatter fmt;
-      fmt.add(_s);
       con.send(_s);
-      Serial.println(fmt.format("[VIRTUINO] Out: [0]"));
     }
     void sendError(const ErrorCode& _code, HTTPConnection& con)
     {
       Formatter fmt;
       fmt.add(_code);
-      send(fmt.format("!E00=[0]$"),con);
+      send(fmt.format("!E00=[0]$"), con);
     }
   public:
     static void reset()
@@ -1024,7 +1019,7 @@ class VirtuinoBoard : public HTTPServlet
     }
     static void apply(const BoardType& _type)
     {
-      if(_apply) return;
+      if (_apply) return;
       switch (_type)
       {
         case NODEMCU_1_0:
@@ -1054,7 +1049,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _digital_board.find(_pinId);
-      return (*it).second!="" ? (*it).second : "0";
+      return (*it).second != "" ? (*it).second : "0";
     }
     template<typename T> static void virtualDigitalWrite(const int& _pinId, const T& _t)
     {
@@ -1070,7 +1065,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _digital.find(_pinId);
-      return (*it).second!="" ? (*it).second : "0";
+      return (*it).second != "" ? (*it).second : "0";
     }
     template<typename T> static void virtualAnalogWrite(const int& _pinId, const T& _t)
     {
@@ -1086,7 +1081,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _analog.find(_pinId);
-      return (*it).second!="" ? (*it).second : "0";
+      return (*it).second != "" ? (*it).second : "0";
     }
     template<typename T> static void virtualWrite(const int& _pinId, const T& _t)
     {
@@ -1102,7 +1097,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _virtual.find(_pinId);
-      return (*it).second!="" ? (*it).second : "0";
+      return (*it).second != "" ? (*it).second : "0";
     }
     static void clear() {
       if (!_apply) return;
@@ -1110,7 +1105,6 @@ class VirtuinoBoard : public HTTPServlet
       _digital.clear();
       _digital_board.clear();
       _virtual.clear();
-      Serial.println("[VIRTUINO] Cleared out");
     }
     void begin(HTTPServer& _server, const string& _pass)
     {
@@ -1168,7 +1162,6 @@ class VirtuinoBoard : public HTTPServlet
       string cmd_str = cmd.get(0);
       fmt.reset();
       fmt.add(cmd_str);
-      Serial.println(fmt.format("[VIRTUINO] In: [0]"));
       if (cmd_str.length() < 1 || cmd_str[0] != '!' || cmd_str[cmd_str.length() - 1] != '$')
       {
         sendError(INVALID_COMMAND_REQUEST, con);
@@ -1208,10 +1201,8 @@ class VirtuinoBoard : public HTTPServlet
               fmt.reset();
               fmt.add(pinIdNum < 10 ? "0" : "");
               fmt.add(pinIdNum);
-              fmt.add(VERSION_MAIN);
-              fmt.add(VERSION_CODE);
-              fmt.add(VERSION_EXTRA);
-              out += fmt.format("!C[0][1]=[2]/[3] ([4])$");
+              fmt.add(versionString());
+              out += fmt.format("!C[0][1]=[2]$");
               break;
             }
             sendError(UNKNOWN_COMMAND, con);
@@ -1222,7 +1213,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
               return;
             }
-            if (pinValNum >= 0) virtualAnalogWrite(pinIdNum, pinValNum);            
+            if (pinValNum >= 0) virtualAnalogWrite(pinIdNum, pinValNum);
             fmt.reset();
             fmt.add(pinIdNum < 10 ? "0" : "");
             fmt.add(pinIdNum);
@@ -1235,7 +1226,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
               return;
             }
-            if (pinValNum >= 0) virtualDigitalWrite(pinIdNum, pinValNum);            
+            if (pinValNum >= 0) virtualDigitalWrite(pinIdNum, pinValNum);
             fmt.reset();
             fmt.add(pinIdNum < 10 ? "0" : "");
             fmt.add(pinIdNum);
@@ -1249,7 +1240,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
               return;
             }
-            if (pinValNum >= 0) virtualDigitalBoardWrite(pinIdNum,pinValNum);
+            if (pinValNum >= 0) virtualDigitalBoardWrite(pinIdNum, pinValNum);
             fmt.reset();
             fmt.add(pinType[0]);
             fmt.add(pinIdNum < 10 ? "0" : "");
@@ -1258,18 +1249,18 @@ class VirtuinoBoard : public HTTPServlet
             out += fmt.format("![0][1][2]=[3]$");
             break;
           case 'V': //Virtual
-              if (pinIdNum < 0 || pinIdNum > _virtual_cnt)
+            if (pinIdNum < 0 || pinIdNum > _virtual_cnt)
             {
               sendError(INVALID_PIN_ID, con);
-                return;
-              }
-            if (pinValNum >= 0) virtualWrite(pinIdNum,pinValNum);            
+              return;
+            }
+            if (pinValNum >= 0) virtualWrite(pinIdNum, pinValNum);
             fmt.reset();
             fmt.add(pinIdNum < 10 ? "0" : "");
             fmt.add(pinIdNum);
             fmt.add(virtualRead(pinIdNum));
-              out += fmt.format("!V[0][1]=[2]$");
-              break;
+            out += fmt.format("!V[0][1]=[2]$");
+            break;
           default: //Unknown
             sendError(UNKNOWN_PIN_TYPE, con);
             break;
@@ -1280,7 +1271,7 @@ class VirtuinoBoard : public HTTPServlet
       }
       fmt.reset();
       fmt.add(out);
-      send(out,con);
+      send(out, con);
     }
     VirtuinoBoard()
     {
@@ -1376,7 +1367,6 @@ void setup() {
   Formatter fmt;
   int _cnt = 0, _cnt_reconnect = 0, _mode = wlan_mode;
   bool _echo = false, _wait = true;
-
   while (WiFi.status() != WL_CONNECTED)
   {
     if (!_echo)
@@ -1470,7 +1460,6 @@ void setup() {
     fmt.add(_mode == 0 ? WiFi.localIP()[2] : WiFi.softAPIP()[2]);
     fmt.add(_mode == 0 ? WiFi.localIP()[3] : WiFi.softAPIP()[3]);
     Serial.println(fmt.format(" ok ([0].[1].[2].[3])"));
-    WiFi.printDiag(Serial);
     _server.install("/favicon.ico", new FaviconICO());
     _server.install("/", &_page_root_index);
     _server.install("/index.html", &_page_root_index);
@@ -1480,24 +1469,24 @@ void setup() {
   }
 }
 
-long next_update = millis(), next_pause=5000,//5 sec
+long next_update = millis(), next_pause = 5000, //5 sec
      led_update = millis(), led_next_pause = 1000; //1 sec
 void loop() {
   _server.waitFor();
   /**********************************************
     Virtuino Random Example, CMD: !V00=?$
    **********************************************/
-  if(millis()>=next_update)
+  if (millis() >= next_update)
   {
     next_update += next_pause;
-    VirtuinoBoard::virtualWrite(0,rand() % 255); //0...255
+    VirtuinoBoard::virtualWrite(0, rand() % 255); //0...255
   }
   /**********************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
    **********************************************/
-  if(millis()>=led_update)
+  if (millis() >= led_update)
   {
     led_update += led_next_pause;
-    VirtuinoBoard::virtualWrite(1,utils.str2int(VirtuinoBoard::virtualRead(1))==1 ? 0 : 1);
+    VirtuinoBoard::virtualWrite(1, utils.str2int(VirtuinoBoard::virtualRead(1)) == 1 ? 0 : 1);
   }
 }
