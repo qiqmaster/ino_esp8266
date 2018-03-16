@@ -1301,8 +1301,8 @@ bool VirtuinoBoard::_apply;
  ********/
 static const string wlan_ap_ssid            = "ESP8266",
                     wlan_ap_pass            = "changeme",
-                    wlan_sta_ssid           = "internet",
-                    wlan_sta_pass           = "CAG3N3A4",
+                    wlan_sta_ssid           = "<sta_ssid>",
+                    wlan_sta_pass           = "<sta_pass>",
                     virtuino_pass           = "1234";
 static const bool   wlan_ap_secure          = true,
                     wlan_sta_secure         = true,
