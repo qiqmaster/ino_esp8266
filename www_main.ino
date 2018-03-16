@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 const double VERSION_MAIN   = 6.5,
-             VERSION_CODE   = 6.4,
+             VERSION_CODE   = 6.5,
              VERSION_EXTRA  = 180316;
 /**************************************************************************************
   Utils
@@ -1054,7 +1054,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _digital_board.find(_pinId);
-      return (*it).second;
+      return (*it).second!="" ? (*it).second : "0";
     }
     template<typename T> static void virtualDigitalWrite(const int& _pinId, const T& _t)
     {
@@ -1070,7 +1070,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _digital.find(_pinId);
-      return (*it).second;
+      return (*it).second!="" ? (*it).second : "0";
     }
     template<typename T> static void virtualAnalogWrite(const int& _pinId, const T& _t)
     {
@@ -1086,7 +1086,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _analog.find(_pinId);
-      return (*it).second;
+      return (*it).second!="" ? (*it).second : "0";
     }
     template<typename T> static void virtualWrite(const int& _pinId, const T& _t)
     {
@@ -1102,7 +1102,7 @@ class VirtuinoBoard : public HTTPServlet
     {
       if (!_apply) return string();
       std::map<int, string>::iterator it = _virtual.find(_pinId);
-      return (*it).second;
+      return (*it).second!="" ? (*it).second : "0";
     }
     static void clear() {
       if (!_apply) return;
@@ -1222,14 +1222,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
               return;
             }
-            if (pinValNum >= 0){
-              fmt.reset();
-              fmt.add(pinType[0]);
-              fmt.add(pinIdNum);
-              fmt.add(pinValNum);
-              Serial.println(fmt.format("[VIRTUINO] Update pin: [0][1]=[2]"));
-              virtualAnalogWrite(pinIdNum, pinValNum);
-            }
+            if (pinValNum >= 0) virtualAnalogWrite(pinIdNum, pinValNum);            
             fmt.reset();
             fmt.add(pinIdNum < 10 ? "0" : "");
             fmt.add(pinIdNum);
@@ -1242,14 +1235,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
               return;
             }
-            if (pinValNum >= 0){
-              fmt.reset();
-              fmt.add(pinType[0]);
-              fmt.add(pinIdNum);
-              fmt.add(pinValNum);
-              Serial.println(fmt.format("[VIRTUINO] Update pin: [0][1]=[2]"));
-              virtualDigitalWrite(pinIdNum, pinValNum);
-            }
+            if (pinValNum >= 0) virtualDigitalWrite(pinIdNum, pinValNum);            
             fmt.reset();
             fmt.add(pinIdNum < 10 ? "0" : "");
             fmt.add(pinIdNum);
@@ -1263,14 +1249,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
               return;
             }
-            if (pinValNum >= 0){
-              fmt.reset();
-              fmt.add(pinType[0]);
-              fmt.add(pinIdNum);
-              fmt.add(pinValNum);
-              Serial.println(fmt.format("[VIRTUINO] Update pin: [0][1]=[2]"));
-              virtualDigitalBoardWrite(pinIdNum,pinValNum);
-            }
+            if (pinValNum >= 0) virtualDigitalBoardWrite(pinIdNum,pinValNum);
             fmt.reset();
             fmt.add(pinType[0]);
             fmt.add(pinIdNum < 10 ? "0" : "");
@@ -1284,14 +1263,7 @@ class VirtuinoBoard : public HTTPServlet
               sendError(INVALID_PIN_ID, con);
                 return;
               }
-            if (pinValNum >= 0) {
-              fmt.reset();
-              fmt.add(pinType[0]);
-              fmt.add(pinIdNum);
-              fmt.add(pinValNum);
-              Serial.println(fmt.format("[VIRTUINO] Update pin: [0][1]=[2]"));
-              virtualWrite(pinIdNum,pinValNum);
-            }
+            if (pinValNum >= 0) virtualWrite(pinIdNum,pinValNum);            
             fmt.reset();
             fmt.add(pinIdNum < 10 ? "0" : "");
             fmt.add(pinIdNum);
@@ -1329,8 +1301,8 @@ bool VirtuinoBoard::_apply;
  ********/
 static const string wlan_ap_ssid            = "ESP8266",
                     wlan_ap_pass            = "changeme",
-                    wlan_sta_ssid           = "<sta_ssid>",
-                    wlan_sta_pass           = "<sta_pass>",
+                    wlan_sta_ssid           = "internet",
+                    wlan_sta_pass           = "CAG3N3A4",
                     virtuino_pass           = "1234";
 static const bool   wlan_ap_secure          = true,
                     wlan_sta_secure         = true,
