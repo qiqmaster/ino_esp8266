@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN           = 6.6,
-                    VERSION_CODE           = 8.1,
+                    VERSION_CODE           = 8.12,
                     VERSION_EXTRA          = 180318;
 static const string VERSION_PREFIX         = "-perf";
 static const string versionString()
@@ -1012,6 +1012,7 @@ class Pin
 enum ErrorId
 {
   ERROR_OK,
+  ERROR_NO_BOARD,
   ERROR_INVALID_REQUEST,
   ERROR_DUPLICATED,
   ERROR_INCORRECT_PASSWORD,
@@ -1050,10 +1051,15 @@ class VirtuinoBoard: public HTTPServlet
       fmt.add(CMD_START_CHAR);
       fmt.add(_id);
       fmt.add(CMD_END_CHAR);
-      send(fmt.format("[0]00=[1][2]"), con);
+      send(fmt.format("[0]E00=[1][2]"), con);
     }
     virtual void service(HTTPConnection& con)
     {
+      if(!_begin)
+      {
+        sendError(ERROR_NO_BOARD, con);
+        return;
+      }
       KeyPair _secret = con.param("secret"),
               _cmd = con.param("cmd");
       if (_secret.size() < 1 || _cmd.size() < 1)
@@ -1492,6 +1498,7 @@ class VirtuinoBoard: public HTTPServlet
             _d_cnt = 11;
             for (int i = 0; i < _d_cnt; i++) //ENABLE PWM ON ALL DIGITAL PINS
               _pwm_idx.push_back(i);
+            break;
           default:
             Serial.println("[VIRTUINO] begin failed: unknown board type!");
             return;
@@ -1529,7 +1536,7 @@ class VirtuinoBoard: public HTTPServlet
     VirtuinoBoard() {}
 };
 std::vector<Pin> VirtuinoBoard::_pins;
-bool VirtuinoBoard::_begin;
+bool VirtuinoBoard::_begin = false;
 int VirtuinoBoard::_cmd_idx, VirtuinoBoard::_a_idx, VirtuinoBoard::_d_idx, VirtuinoBoard::_dv_idx, VirtuinoBoard::_v_idx;
 string VirtuinoBoard::_pass;
 /**************************************************************************************
