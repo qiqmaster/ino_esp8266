@@ -6,9 +6,9 @@
 #include <vector>
 #define string String
 #include <FS.h>
-static const double VERSION_MAIN   = 6.5,
-                    VERSION_CODE   = 6.63,
-                    VERSION_EXTRA  = 180316;
+static const double VERSION_MAIN   = 6.6,
+                    VERSION_CODE   = 7.3,
+                    VERSION_EXTRA  = 180318;
 static const string VERSION_PREFIX = "-perf";
 static const string versionString()
 {
@@ -27,41 +27,43 @@ static const string versionString()
  *******/
 class Utils
 {
+  private:
+    Utils() {}
   public:
     /**********************************************
       String
      **********************************************/
-    const int indexOf(const string& _s, const int& _start, const char& _c)
+    static const int indexOf(const string& _s, const int& _start, const char& _c)
     {
       for (int i = _start; i < _s.length(); i++)
         if (_s[i] == _c) return i;
       return -1;
     }
-    const int indexOf(const string& _s, const char& _c)
+    static const int indexOf(const string& _s, const char& _c)
     {
       return indexOf(_s, 0, _c);
     }
-    const string substring(const string& _s, const int& _start, const int& _end)
+    static const string substring(const string& _s, const int& _start, const int& _end)
     {
-      string out = "";
+      string out;
       if (_start >= 0 && _start < _end && _end <= _s.length())
         for (int i = _start; i < _end; i++)
           out += _s[i];
       return out;
     }
-    const string substring(const string& _s, const int& _end)
+    static const string substring(const string& _s, const int& _end)
     {
       return substring(_s, 0, _end);
     }
-    const std::vector<string> split(const string& _s, const char& _c)
+    static const std::vector<string> split(const string& _s, const char& _c)
     {
       std::vector<string> out;
-      string cur = "";
+      string cur;
       for (int i = 0; i < _s.length() + 1; i++)
       {
         if (_s[i] == _c || i == _s.length())
         {
-          out.insert(out.end(), cur);
+          out.push_back(cur);
           cur = "";
           continue;
         }
@@ -69,7 +71,7 @@ class Utils
       }
       return out;
     }
-    const string trim(const string& _s)
+    static const string trim(const string& _s)
     {
       string out = _s;
       if (out[0] == ' ')
@@ -81,7 +83,7 @@ class Utils
     /**********************************************
       Number
      **********************************************/
-    const int pow(const int& _in, const int& _pow)
+    static const int pow(const int& _in, const int& _pow)
     {
       if (_pow < 1) return 1;
       if (_pow == 1) return _in;
@@ -89,19 +91,31 @@ class Utils
       for (int i = 1; i < _pow; i++) out *= _in;
       return out;
     }
-    const int str2int(const string& _s)
+    static const bool isNum(const string& _s)
+    {
+      bool out = true;
+      for (int i = 0; i < _s.length(); i++)
+      {
+        if (i == 0 && i + 1 < _s.length() && _s[i] == '-')
+          continue;
+        if (_s[i] < '0' || _s[i] > '9')
+          return false;
+      }
+      return out;
+    }
+    static const int str2int(const string& _s)
     {
       int out = 0, _pow = 0;
+      if (!isNum(_s)) return -1;
       for (int i = _s.length() - 1; i >= (_s[0] == '-' ? 1 : 0); i--)
       {
-        if (_s[i] < '0' || _s[i] > '9') return -1;
         out += pow(10, _pow) * (_s[i] - '0');
         _pow++;
       }
       if (_s[0] == '-') out *= -1;
       return out;
     }
-    const double str2double(const String& _s)
+    static const double str2double(const String& _s)
     {
       std::vector<string> nums = split(_s, '.');
       int i0 = str2int(nums[0]),
@@ -114,18 +128,18 @@ class Utils
       out += i0;
       return out;
     }
-    const string int2str(const int& _i)
+    static const string int2str(const int& _i)
     {
       return string(_i, DEC);
     }
-    const string double2str(const double& _d)
+    static const string double2str(const double& _d)
     {
       return string(_d, DEC);
     }
     /**********************************************
       URL
      **********************************************/
-    const string encodeURL(const string& _s)
+    static const string encodeURL(const string& _s)
     {
       string out = "";
       for (int i = 0; i < _s.length(); i++)
@@ -152,7 +166,7 @@ class Utils
       }
       return out;
     }
-    const string decodeURL(const string& _s)
+    static const string decodeURL(const string& _s)
     {
       string out = "";
       for (int i = 0; i < _s.length(); i++)
@@ -183,9 +197,7 @@ class Utils
       }
       return out;
     }
-    Utils() {}
 };
-Utils utils;
 /**************************************************************************************
   Formatter
  ***********/
@@ -196,7 +208,7 @@ class Formatter
   public:
     template<typename T> void add(const T& _t)
     {
-      _values.insert(_values.end(), string(_t));
+      _values.push_back(string(_t));
     }
     void reset()
     {
@@ -222,7 +234,7 @@ class Formatter
           case 1:
             if (_s[i] == ']')
             {
-              int index = utils.str2int(num);
+              int index = Utils::str2int(num);
               if (index < 0 || index > _values.size())
                 out += "[#]";
               else
@@ -294,8 +306,7 @@ static const int    HTTP_MAX_DATA_WAIT                       = 5000,
                     HTTP_MAX_POST_WAIT                       = 5000,
                     HTTP_MAX_SEND_WAIT                       = 5000,
                     HTTP_MAX_CLOSE_WAIT                      = 2000;
-
-typedef enum HTTPStatus
+enum HTTPStatus
 {
   /**********************************************
     Information
@@ -383,7 +394,6 @@ typedef enum HTTPStatus
   HTTP_525_SSL_HANDSHAKE_FAILED            = 525,
   HTTP_526_INVALID_SSL_CERTIFICATE         = 526
 };
-
 class Cookie
 {
   private:
@@ -434,7 +444,6 @@ class Cookie
       this->_value = _value;
     }
 };
-
 class KeyPair
 {
   private:
@@ -442,10 +451,7 @@ class KeyPair
   public:
     const bool check(const string& _value)
     {
-      if (_value.length() < 1 || _values.size() < 1)
-        return false;
-      if (_values.size() == 1)
-        return _values[0] == _value;
+      if (_value.length() < 1) return false;
       for (int i = 0; i < _values.size(); i++)
         if (_values[i] == _value)
           return true;
@@ -466,12 +472,10 @@ class KeyPair
     }
     KeyPair() {}
 };
-
-typedef enum PairType
+enum PairType
 {
   QUERY, COOKIE
 };
-
 class HTTPConnection
 {
   private:
@@ -483,17 +487,16 @@ class HTTPConnection
     std::map<string, KeyPair> _params;
     std::map<string, Cookie> _cookies_out;
     bool _sendHeaders;
-
     const bool readPairs(const string& _pairs, const PairType& _type)
     {
-      std::vector<string> _pair = utils.split(_pairs, _type == QUERY ? '&' : ';');
+      std::vector<string> _pair = Utils::split(_pairs, _type == QUERY ? '&' : ';');
       for (int i = 0; i < _pair.size(); i++)
       {
-        int idx = utils.indexOf(_pair[i], '=');
+        int idx = Utils::indexOf(_pair[i], '=');
         if (idx < 0)
           return false;
-        string k = utils.trim(utils.substring(_pair[i], idx)),
-               v = utils.trim(utils.substring(_pair[i], idx + 1, _pair[i].length()));
+        string k = Utils::trim(Utils::substring(_pair[i], idx)),
+               v = Utils::trim(Utils::substring(_pair[i], idx + 1, _pair[i].length()));
         if (k.length() > 0 && v.length() > 0)
         {
           if (_type == QUERY)
@@ -529,7 +532,7 @@ class HTTPConnection
         fmt.add(_client.remoteIP()[3]);
         _client.print(fmt.format("HTTP/1.1 [1]\r\n"));
         Serial.println(fmt.format("[HTTP][[3].[4].[5].[6]][[0]][[1]] [2]"));
-        header("Content-Length", utils.int2str(_clen));
+        header("Content-Length", Utils::int2str(_clen));
         header("Content-Type", _ctype);
         if (_status != HTTP_444_CLOSED_WITHOUT_HEADERS)
         {
@@ -553,7 +556,7 @@ class HTTPConnection
               fmt.add(c.domain().length() > 0 ? "; domain=" : "");          //[5]
               fmt.add(c.domain());                                          //[6]
               fmt.add(c.expire() > 1000 ? "; expire=" : "");                //[7]
-              fmt.add((c.expire() > 1000 ? string(c.expire()) : ""));                 //[8]
+              fmt.add((c.expire() > 1000 ? string(c.expire()) : ""));       //[8]
               fmt.add(c.secure() ? "; secure" : "");                        //[9]
               _client.print(fmt.format("[0]: [1]=[2][3][4][5][6][7][8][9]\r\n"));
             }
@@ -641,14 +644,13 @@ class HTTPConnection
     }
     void contentType(const string& _ctype)
     {
-      if (_ctype.length() > 0 && utils.indexOf(_ctype, '/') > 0)
+      if (_ctype.length() > 0 && Utils::indexOf(_ctype, '/') > 0)
         this->_ctype = _ctype;
     }
     const IPAddress remoteIP()
     {
       return _client.remoteIP();
     }
-
     void write(const byte& _c)
     {
       if (_client.connected())
@@ -710,7 +712,6 @@ class HTTPConnection
     {
       send(_status, string());
     }
-
     HTTPConnection(WiFiClient& _client)
     {
       this->_client = _client;
@@ -723,7 +724,7 @@ class HTTPConnection
       fmt.reset();
       string line = _client.readStringUntil('\r');
       _client.read();
-      std::vector<string> hdr = utils.split(line, ' ');
+      std::vector<string> hdr = Utils::split(line, ' ');
       if (hdr.size() != 3)
       {
         _status = HTTP_406_NOT_ACCEPTABLE;
@@ -737,32 +738,32 @@ class HTTPConnection
         return;
       }
       _method = hdr[0];
-      _uri = utils.decodeURL(hdr[1]);
+      _uri = Utils::decodeURL(hdr[1]);
       if (_uri.length() < 1)
       {
         _status = HTTP_400_BAD_REQUEST;
         close();
         return;
       }
-      int idx = utils.indexOf(_uri, '?');
+      int idx = Utils::indexOf(_uri, '?');
       if (idx > 0)
       {
-        if (!readPairs(utils.substring(_uri, idx + 1, _uri.length()), QUERY))
+        if (!readPairs(Utils::substring(_uri, idx + 1, _uri.length()), QUERY))
         {
           _status = HTTP_400_BAD_REQUEST;
           close();
           return;
         }
-        _path = utils.substring(_uri, 0, idx);
+        _path = Utils::substring(_uri, 0, idx);
       } else _path = _uri;
-      std::vector<string> prot = utils.split(hdr[2], '/');
+      std::vector<string> prot = Utils::split(hdr[2], '/');
       if (prot.size() != 2 || prot[0] != "HTTP")
       {
         _status = HTTP_444_CLOSED_WITHOUT_HEADERS;
         close();
         return;
       }
-      if (utils.str2double(prot[1]) < 1.1)
+      if (Utils::str2double(prot[1]) < 1.1)
       {
         _status = HTTP_426_UPGRADE_REQUIRED;
         close();
@@ -771,21 +772,21 @@ class HTTPConnection
       while ((line = _client.readStringUntil('\r')) != "")
       {
         _client.read();
-        int idx = utils.indexOf(line, ':');
+        int idx = Utils::indexOf(line, ':');
         if (idx < 0)
         {
           _status = HTTP_406_NOT_ACCEPTABLE;
           close();
           return;
         }
-        string k = utils.substring(line, idx),
-               v = utils.substring(line, idx + 2, line.length());
+        string k = Utils::substring(line, idx),
+               v = Utils::substring(line, idx + 2, line.length());
         _headers_in.insert(std::pair<string, string>(k, v));
       }
       _client.read();
       if (_method == HTTP_POST)
       {
-        int len = utils.str2int(header("Content-Length"));
+        int len = Utils::str2int(header("Content-Length"));
         if (len > 0)
         {
           string post = "";
@@ -793,7 +794,7 @@ class HTTPConnection
           {
             post += _client.read();
           }
-          post = utils.decodeURL(post);
+          post = Utils::decodeURL(post);
           if (post.length() < 1 || !readPairs(post, QUERY))
           {
             _status = HTTP_400_BAD_REQUEST;
@@ -815,16 +816,20 @@ class HTTPConnection
       _status = HTTP_200_OK;
     }
 };
-
 class HTTPServlet
 {
-  public:
+  private:
     virtual void service(HTTPConnection& con)
     {
       con.send(HTTP_501_NOT_IMPLEMENTED);
     }
-};
+  public:
+    static void service(HTTPServlet& _servlet, HTTPConnection& _con)
+    {
+      _servlet.service(_con);
+    }
 
+};
 class HTTPServer
 {
   private:
@@ -898,23 +903,22 @@ class HTTPServer
             {
               _mode = 2;
               _current.setTimeout(HTTP_MAX_SEND_WAIT);
-              Formatter fmt;
+
               HTTPConnection con(_current);
               if (con.status() == 200)
               {
-                fmt.reset();
                 if (_servlets.size() > 0)
                 {
-                  fmt.add(con.path());
                   std::map<string, HTTPServlet*>::iterator it = _servlets.find(con.path());
                   if (it != _servlets.end()) {
                     HTTPServlet* _servlet = (*it).second;
-                    _servlet->service(con);
+                    HTTPServlet::service(*_servlet, con);
                     (*it).second = _servlet;
                     con.close();
+                    break;
                   }
-                  con.send(HTTP_404_NOT_FOUND);
                 }
+                con.send(HTTP_404_NOT_FOUND);
               }
             }
             else
@@ -949,344 +953,500 @@ class HTTPServer
 /**************************************************************************************
   Virtuino
  **********/
-typedef enum PinType
+enum PinMode
 {
-  ANALOG, COMMAND, DIGITAL, ERROR, VIRTUAL
+  MODE_INPUT, MODE_OUTPUT, MODE_ANY
 };
-
-typedef enum ErrorCode
+enum PinType
 {
-  PASSWORD_PARAMETER_MUST_BE_ONLY_ONE = 0,
-  INCORRECT_PASSWORD                  = 1,
-  COMMAND_PARAMETER_MUST_BE_ONLY_ONE  = 2,
-  INVALID_COMMAND_REQUEST             = 3,
-  UNKNOWN_PIN_TYPE                    = 4,
-  INVALID_PIN_ID                      = 5,
-  UNKNOWN_PIN_VAL                     = 6,
-  UNKNOWN_COMMAND                     = 7
+  ANALOG, COMMAND, DIGITAL, DIGITAL_VIRTUAL, VIRTUAL, UNKNOWN
 };
-
-typedef enum BoardType
+enum BoardType
 {
-  GENERIC_ESP8266         = 0,
-  GENERIC_ESP8285         = 1,
-  ESPDUINO                = 2,
-  ADAFRUIT                = 3,
-  ESPESSO_LITE_1_0        = 4,
-  ESPESSO_LITE_2_0        = 5,
-  PHONEIX_1_0             = 6,
-  PHONEIX_2_0             = 7,
-  NODEMCU_0_9             = 8,
-  NODEMCU_1_0             = 9,
-  OLIMEX_MOD_WIFI_ESP8266 = 10,
-  SPARK_FUN_THING         = 11,
-  SPARK_FUN_THING_DEV     = 12,
-  SWEETPEA                = 13,
-  WEMOS_D1_R2_MINI        = 14,
-  WEMOS_D1                = 15,
-  ESPINO                  = 16,
-  THAIEASYELECS_ESPINO    = 17,
-  WIFINFO                 = 18,
-  CORE_DEVELOPMENT_MODULE = 19
+  NODEMCU_ESP_12E
 };
-static const string VIRTUINO_PATH = "/virtuino";
-class VirtuinoBoard : public HTTPServlet
+class Pin
 {
   private:
-    static std::map<int, string> _analog, _digital, _digital_board, _virtual;
-    static int _analog_cnt, _digital_cnt, _virtual_cnt;
-    static bool _apply;
-    bool _begin;
-    string _pass;
+    PinMode _mode;
+    PinType _type;
+    int _value;
+    bool _pwm;
+  public:
+    const PinMode mode()
+    {
+      return _mode;
+    }
+    void mode(const PinMode& _mode)
+    {
+      this->_mode = _mode;
+    }
+    const int value()
+    {
+      return _value;
+    }
+    void value(const int& _value)
+    {
+      this->_value = _value;
+    }
+    const bool pwm()
+    {
+      return _pwm;
+    }
+    void pwm(const bool& _pwm)
+    {
+      this->_pwm = _pwm;
+    }
+    const PinType type()
+    {
+      return _type;
+    }
+    Pin(const PinType& _type, const bool& _pwm, const PinMode& _mode)
+    {
+      this->_type = _type;
+      this->_pwm = _pwm;
+      this->_mode = _mode;
+      _value = 0;
+    }
+};
 
+enum ErrorId
+{
+  ERROR_OK,
+  ERROR_INVALID_REQUEST,
+  ERROR_DUPLICATED,
+  ERROR_INCORRECT_PASSWORD,
+  ERROR_UNKNOWN_PIN_TYPE,
+  ERROR_INVALID_PIN_ID,
+  ERROR_UNKNOWN_CMD
+};
+
+static const string VIRTUINO_PATH = "/virtuino";
+
+class VirtuinoBoard: public HTTPServlet
+{
+  private:
+    static const int COMMAND_PIN_CNT = 1,
+                     VIRTUAL_PIN_CNT = 32;
+    static const char CMD_START_CHAR = '!',
+                      CMD_END_CHAR = '$',
+                      CMD_REQ_CHAR = '?',
+                      PIN_COMMAND_CHAR = 'C',
+                      PIN_ANALOG_CHAR = 'A',
+                      PIN_DIGITAL_CHAR = 'O',
+                      PIN_DIGITAL_VIRTUAL_CHAR = 'D',
+                      PIN_VIRTUAL_CHAR = 'V',
+                      PIN_PWM_CHAR = 'Q';
+    static std::vector<Pin> _pins;
+    static int _cmd_idx, _a_idx, _d_idx, _dv_idx, _v_idx;
+    static string _pass;
+    static bool _begin;
     void send(const string& _s, HTTPConnection& con)
     {
       con.send(_s);
     }
-    void sendError(const ErrorCode& _code, HTTPConnection& con)
+    void sendError(const ErrorId& _id, HTTPConnection& con)
     {
       Formatter fmt;
-      fmt.add(_code);
-      send(fmt.format("!E00=[0]$"), con);
-    }
-  public:
-    static void reset()
-    {
-      _analog.clear();
-      _digital.clear();
-      _digital_board.clear();
-      _virtual.clear();
-    }
-    static void apply(const BoardType& _type)
-    {
-      if (_apply) return;
-      switch (_type)
-      {
-        case NODEMCU_1_0:
-          _analog_cnt  = 1;
-          _digital_cnt = 11;
-          _virtual_cnt = 32;
-          break;
-        default:
-          _analog_cnt  = 0;
-          _digital_cnt = 0;
-          _virtual_cnt = 0;
-          break;
-      }
-      _apply = true;
-    }
-    template<typename T> static void virtualDigitalBoardWrite(const int& _pinId, const T& _t)
-    {
-      if (!_apply || _pinId < 0 || _pinId > _digital_cnt)
-        return;
-      std::map<int, string>::iterator it = _digital_board.find(_pinId);
-      if (it != _digital_board.end())
-        (*it).second = string(_t);
-      else
-        _digital_board.insert(std::pair<int, string>(_pinId, string(_t)));
-    }
-    static const string virtualDigitalBoardRead(const int& _pinId)
-    {
-      if (!_apply) return string();
-      std::map<int, string>::iterator it = _digital_board.find(_pinId);
-      return (*it).second != "" ? (*it).second : "0";
-    }
-    template<typename T> static void virtualDigitalWrite(const int& _pinId, const T& _t)
-    {
-      if (!_apply || _pinId < 0 || _pinId > _virtual_cnt)
-        return;
-      std::map<int, string>::iterator it = _digital.find(_pinId);
-      if (it != _digital.end())
-        (*it).second = string(_t);
-      else
-        _digital.insert(std::pair<int, string>(_pinId, string(_t)));
-    }
-    static const string virtualDigitalRead(const int& _pinId)
-    {
-      if (!_apply) return string();
-      std::map<int, string>::iterator it = _digital.find(_pinId);
-      return (*it).second != "" ? (*it).second : "0";
-    }
-    template<typename T> static void virtualAnalogWrite(const int& _pinId, const T& _t)
-    {
-      if (!_apply || _pinId < 0 || _pinId > _analog_cnt)
-        return;
-      std::map<int, string>::iterator it = _analog.find(_pinId);
-      if (it != _analog.end())
-        (*it).second = string(_t);
-      else
-        _analog.insert(std::pair<int, string>(_pinId, string(_t)));
-    }
-    static const string virtualAnalogRead(const int& _pinId)
-    {
-      if (!_apply) return string();
-      std::map<int, string>::iterator it = _analog.find(_pinId);
-      return (*it).second != "" ? (*it).second : "0";
-    }
-    template<typename T> static void virtualWrite(const int& _pinId, const T& _t)
-    {
-      if (!_apply || _pinId < 0 || _pinId > _virtual_cnt)
-        return;
-      std::map<int, string>::iterator it = _virtual.find(_pinId);
-      if (it != _virtual.end())
-        (*it).second = string(_t);
-      else
-        _virtual.insert(std::pair<int, string>(_pinId, string(_t)));
-    }
-    static const string virtualRead(const int& _pinId)
-    {
-      if (!_apply) return string();
-      std::map<int, string>::iterator it = _virtual.find(_pinId);
-      return (*it).second != "" ? (*it).second : "0";
-    }
-    static void clear() {
-      if (!_apply) return;
-      _analog.clear();
-      _digital.clear();
-      _digital_board.clear();
-      _virtual.clear();
-    }
-    void begin(HTTPServer& _server, const string& _pass)
-    {
-      string out;
-      if (!_apply)
-        out = "failed: apply board type first!";
-      else {
-        if (_begin) return;
-        if (!_server.install(VIRTUINO_PATH, this)) out = "failed: path already busy!";
-        else {
-          out = "ok";
-          _begin = true;
-        }
-      }
-      Formatter fmt;
-      fmt.add(out);
-      Serial.println(fmt.format("[VIRTUINO] begin [0]"));
-    }
-    void stop(HTTPServer& _server)
-    {
-      string out;
-      if (!_apply || !_begin) out = "failed: begin first!";
-      else {
-        if (!_server.uninstall(VIRTUINO_PATH)) out = "failed: path not installed!";
-        else {
-          out = "ok";
-          _begin = false;
-        }
-      }
-      Formatter fmt;
-      fmt.add(out);
-      Serial.println(fmt.format("[VIRTUINO] stop [0]"));
+      fmt.add(CMD_START_CHAR);
+      fmt.add(_id);
+      fmt.add(CMD_END_CHAR);
+      send(fmt.format("[0]00=[1][2]"), con);
     }
     virtual void service(HTTPConnection& con)
     {
-      if (!_apply || !_begin) return;
+      KeyPair _secret = con.param("secret"),
+              _cmd = con.param("cmd");
+      if (_secret.size() < 1 || _cmd.size() < 1)
+      {
+        sendError(ERROR_INVALID_REQUEST, con);
+        return;
+      }
+      if (_secret.size() > 1 || _cmd.size() > 1)
+      {
+        sendError(ERROR_DUPLICATED, con);
+        return;
+      }
+      if (_secret.get(0) != _pass)
+      {
+        sendError(ERROR_INCORRECT_PASSWORD, con);
+        return;
+      }
+      string req = _cmd.get(0);
+      std::map<int, string> _tmp;
+      std::map<int, char> _in, _out;
+      ErrorId errId = ERROR_OK;
+      while (true)
+      {
+        if (req[0] != CMD_START_CHAR || req[req.length() - 1] != CMD_END_CHAR)
+        {
+          errId = ERROR_INVALID_REQUEST;
+          break;
+        }
+        int idx = Utils::indexOf(req, CMD_END_CHAR);
+        std::vector<string> _pair = Utils::split(Utils::substring(req, 1, idx), '=');
+        if (_pair.size() != 2 || _pair[0].length() < 3 || _pair[1].length() < 1)
+        {
+          errId = ERROR_INVALID_REQUEST;
+          break;
+        }
+        string _pinStr = _pair[0],
+               _valStr = _pair[1],
+               _idStr = Utils::substring(_pinStr, 1, _pinStr.length());
+        char _type = _pinStr[0];
+        if (!Utils::isNum(_idStr) || (!Utils::isNum(_valStr) && _valStr.length() == 1 && _valStr[0] != CMD_REQ_CHAR))
+        {
+          errId = ERROR_INVALID_REQUEST;
+          break;
+        }
+        int _id = Utils::str2int(_idStr);
+
+        if (_type == PIN_COMMAND_CHAR)
+        {
+          int _pinId = pinId(COMMAND, _id);
+          if (_pinId < 0)
+          {
+            errId = ERROR_INVALID_PIN_ID;
+            break;
+          }
+          std::map<int, string>::iterator it = _tmp.find(_pinId);
+          if (it != _tmp.end())
+          {
+            errId = ERROR_DUPLICATED;
+            break;
+          }
+          int _cmd_id = Utils::str2int(_valStr);
+          if (_cmd_id == 1) //CheckVersion
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, versionString()));
+            _out.insert(std::pair<int, char>(_pinId, _type));
+          }
+          else errId = ERROR_UNKNOWN_CMD;
+          break;
+        }
+        if (_type == PIN_ANALOG_CHAR)
+        {
+          int _pinId = pinId(ANALOG, _id);
+          if (_pinId < 0)
+          {
+            errId = ERROR_INVALID_PIN_ID;
+            break;
+          }
+          std::map<int, string>::iterator it = _tmp.find(_pinId);
+          if (it != _tmp.end())
+          {
+            errId = ERROR_DUPLICATED;
+            break;
+          }
+          if (Utils::isNum(_valStr) && pinMode(_pinId) != MODE_OUTPUT) //! MODE_INPUT or MODE_ANY
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, _valStr));
+            _in.insert(std::pair<int, char>(_pinId, _type));
+          }
+          else
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _out.insert(std::pair<int, char>(_pinId, _type));
+          }
+        }
+        else if (_type == PIN_DIGITAL_CHAR || _type == PIN_PWM_CHAR)
+        {
+          int _pinId = pinId(DIGITAL, _id);
+          if (_pinId < 0)
+          {
+            errId = ERROR_INVALID_PIN_ID;
+            break;
+          }
+          std::map<int, string>::iterator it = _tmp.find(_pinId);
+          if (it != _tmp.end())
+          {
+            errId = ERROR_DUPLICATED;
+            break;
+          }
+          if (Utils::isNum(_valStr) && pinMode(_pinId) != MODE_OUTPUT && (_type == PIN_PWM_CHAR ? isPWM(_pinId) : true)) //! MODE_INPUT or MODE_ANY
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, _valStr));
+            _in.insert(std::pair<int, char>(_pinId, _type));
+          }
+          else
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _out.insert(std::pair<int, char>(_pinId, _type));
+          }
+        }
+        else if (_type == PIN_DIGITAL_VIRTUAL_CHAR)
+        {
+          int _pinId = pinId(DIGITAL_VIRTUAL, _id);
+          if (_pinId < 0)
+          {
+            errId = ERROR_INVALID_PIN_ID;
+            break;
+          }
+          std::map<int, string>::iterator it = _tmp.find(_pinId);
+          if (it != _tmp.end())
+          {
+            errId = ERROR_DUPLICATED;
+            break;
+          }
+          if (Utils::isNum(_valStr) && pinMode(_pinId) != MODE_OUTPUT) //! MODE_INPUT or MODE_ANY
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, _valStr));
+            _in.insert(std::pair<int, char>(_pinId, _type));
+          }
+          else
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _out.insert(std::pair<int, char>(_pinId, _type));
+          }
+        }
+        else if (_type == PIN_VIRTUAL_CHAR)
+        {
+          int _pinId = pinId(VIRTUAL, _id);
+          if (_pinId < 0)
+          {
+            errId = ERROR_INVALID_PIN_ID;
+            break;
+          }
+          std::map<int, string>::iterator it = _tmp.find(_pinId);
+          if (it != _tmp.end())
+          {
+            errId = ERROR_DUPLICATED;
+            break;
+          }
+          if (Utils::isNum(_valStr) && pinMode(_pinId) != MODE_OUTPUT) //! MODE_INPUT or MODE_ANY
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, _valStr));
+            _in.insert(std::pair<int, char>(_pinId, _type));
+          }
+          else
+          {
+            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _out.insert(std::pair<int, char>(_pinId, _type));
+          }
+        }
+        else
+        {
+          errId = ERROR_UNKNOWN_PIN_TYPE;
+          break;
+        }
+        if (idx + 1 < req.length()) req = Utils::substring(req, idx + 1, req.length());
+        else break;
+      }
+      if (errId != ERROR_OK)
+      {
+        _tmp.clear();
+        _in.clear();
+        _out.clear();
+        sendError(errId, con);
+        return;
+      }
+      for (std::map<int, char>::iterator cur = _in.begin(); cur != _in.end(); cur++)
+      {
+        writePin((*cur).first, Utils::str2int(_tmp[(*cur).first]));
+        _out.insert(std::pair<int, char>((*cur).first, (*cur).second));
+      }
+      _in.clear();
       Formatter fmt;
-      KeyPair secret = con.param("secret");
-      if (secret.size() > 1)
-      {
-        sendError(PASSWORD_PARAMETER_MUST_BE_ONLY_ONE, con);
-        return;
-      }
-      if (secret.get(0) != _pass)
-      {
-        sendError(INCORRECT_PASSWORD, con);
-        return;
-      }
-      KeyPair cmd = con.param("cmd");
-      if (cmd.size() > 1)
-      {
-        sendError(COMMAND_PARAMETER_MUST_BE_ONLY_ONE, con);
-        return;
-      }
-      string cmd_str = cmd.get(0);
-      fmt.reset();
-      fmt.add(cmd_str);
-      if (cmd_str.length() < 1 || cmd_str[0] != '!' || cmd_str[cmd_str.length() - 1] != '$')
-      {
-        sendError(INVALID_COMMAND_REQUEST, con);
-        return;
-      }
       string out;
-      while (cmd_str[0] == '!' && cmd_str[cmd_str.length() - 1] == '$')
+      for (std::map<int, char>::iterator cur = _out.begin(); cur != _out.end(); cur++)
       {
-        std::vector<string> _pair = utils.split(utils.substring(cmd_str, 1, utils.indexOf(cmd_str, '$')), '=');
-        string  pinType = utils.substring(_pair[0], 0, 1),
-                pinIdStr = utils.substring(_pair[0], 1, _pair[0].length()),
-                pinValStr = _pair[1];
-        if (pinType.length() != 1)
-        {
-          sendError(UNKNOWN_PIN_TYPE, con);
-          return;
-        }
-        if (pinValStr[0] == '?' && pinValStr.length() != 1)
-        {
-          sendError(UNKNOWN_PIN_VAL, con);
-          return;
-        }
-        int pinIdNum = utils.str2int(pinIdStr),
-            pinValNum = utils.str2int(pinValStr);
-        //C00 - Command
-        //A00 - Analog Board
-        //D00..31 - Digital Virtual
-        //O00..<_digital_cnt> - Digital Board
-        //Q00..31 - Digital Board
-        //V00..31 - Virtual
-        //T00..31 - ???
-        switch (pinType[0])
-        {
-          case 'C': //Command
-            if (pinValNum == 1) //VersionRequest
-            {
-              fmt.reset();
-              fmt.add(pinIdNum < 10 ? "0" : "");
-              fmt.add(pinIdNum);
-              fmt.add(versionString());
-              out += fmt.format("!C[0][1]=[2]$");
-              break;
-            }
-            sendError(UNKNOWN_COMMAND, con);
-            break;
-          case 'A': //Analog
-            if (pinIdNum < 0 || pinIdNum > _analog_cnt)
-            {
-              sendError(INVALID_PIN_ID, con);
-              return;
-            }
-            if (pinValNum >= 0) virtualAnalogWrite(pinIdNum, pinValNum);
-            fmt.reset();
-            fmt.add(pinIdNum < 10 ? "0" : "");
-            fmt.add(pinIdNum);
-            fmt.add(virtualAnalogRead(pinIdNum));
-            out += fmt.format("!A[0][1]=[2]$");
-            break;
-          case 'D': //Digital Virtual
-            if (pinIdNum < 0 || pinIdNum > _virtual_cnt)
-            {
-              sendError(INVALID_PIN_ID, con);
-              return;
-            }
-            if (pinValNum >= 0) virtualDigitalWrite(pinIdNum, pinValNum);
-            fmt.reset();
-            fmt.add(pinIdNum < 10 ? "0" : "");
-            fmt.add(pinIdNum);
-            fmt.add(virtualDigitalRead(pinIdNum));
-            out += fmt.format("!D[0][1]=[2]$");
-            break;
-          case 'O': //Digital Board
-          case 'Q': //Digital Board
-            if (pinIdNum < 0 || pinIdNum > _digital_cnt)
-            {
-              sendError(INVALID_PIN_ID, con);
-              return;
-            }
-            if (pinValNum >= 0) virtualDigitalBoardWrite(pinIdNum, pinValNum);
-            fmt.reset();
-            fmt.add(pinType[0]);
-            fmt.add(pinIdNum < 10 ? "0" : "");
-            fmt.add(pinIdNum);
-            fmt.add(virtualDigitalBoardRead(pinIdNum));
-            out += fmt.format("![0][1][2]=[3]$");
-            break;
-          case 'V': //Virtual
-            if (pinIdNum < 0 || pinIdNum > _virtual_cnt)
-            {
-              sendError(INVALID_PIN_ID, con);
-              return;
-            }
-            if (pinValNum >= 0) virtualWrite(pinIdNum, pinValNum);
-            fmt.reset();
-            fmt.add(pinIdNum < 10 ? "0" : "");
-            fmt.add(pinIdNum);
-            fmt.add(virtualRead(pinIdNum));
-            out += fmt.format("!V[0][1]=[2]$");
-            break;
-          default: //Unknown
-            sendError(UNKNOWN_PIN_TYPE, con);
-            break;
-        }
-        int next = utils.indexOf(cmd_str, '$') + 1;
-        if (next == cmd_str.length()) break;
-        cmd_str = utils.substring(cmd_str, next, cmd_str.length());
+        fmt.reset();
+        fmt.add(CMD_START_CHAR);
+        fmt.add((*cur).second);
+        int id = pinTypeId((*cur).first);
+        fmt.add(id < 10 ? "0" : "");
+        fmt.add(id);
+        fmt.add(_tmp[(*cur).first]);
+        fmt.add(CMD_END_CHAR);
+        out += fmt.format("[0][1][2][3]=[4][5]");
       }
       fmt.reset();
-      fmt.add(out);
       send(out, con);
+    }
+  public:
+    static const int pinCound()
+    {
+      return _pins.size();
+    }
+    static const PinMode pinMode(const int& _pinId)
+    {
+      return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].mode() : MODE_ANY;
+    }
+    static void pinMode(const int& _pinId, const PinMode& _mode)
+    {
+      if (_begin && _pinId >= 0 && _pinId < _pins.size())
+        _pins[_pinId].mode(_mode);
+    }
+    static const PinType pinType(const int& _pinId)
+    {
+      return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].type() : UNKNOWN;
+    }
+    static const bool isCommand(const int& _pinId)
+    {
+      return pinType(_pinId) == COMMAND;
+    }
+    static const bool isAnalog(const int& _pinId)
+    {
+      return pinType(_pinId) == ANALOG;
+    }
+    static const bool isDigital(const int& _pinId)
+    {
+      return pinType(_pinId) == DIGITAL;
+    }
+    static const bool isVirtualDigital(const int& _pinId)
+    {
+      return pinType(_pinId) == DIGITAL_VIRTUAL;
+    }
+    static const bool isVirtual(const int& _pinId)
+    {
+      return pinType(_pinId) == VIRTUAL;
+    }
+    static const bool isPWM(const int& _pinId)
+    {
+      return isDigital(_pinId) && _pins[_pinId].pwm();
+    }
+    static const int pinId(const PinType& _type, const int& _id)
+    {
+      switch (_type)
+      {
+        case COMMAND:
+          if (isCommand(_cmd_idx + _id))
+            return _cmd_idx + _id;
+          break;
+        case ANALOG:
+          if (isAnalog(_a_idx + _id))
+            return _a_idx + _id;
+          break;
+        case DIGITAL:
+          if (isDigital(_d_idx + _id))
+            return _d_idx + _id;
+          break;
+        case DIGITAL_VIRTUAL:
+          if (isVirtualDigital(_dv_idx + _id))
+            return _dv_idx + _id;
+          break;
+        case VIRTUAL:
+          if (isVirtual(_v_idx + _id))
+            return _v_idx + _id;
+          break;
+      }
+      return -1;
+    }
+    static const int pinTypeId(const int& _pinId)
+    {
+      switch (pinType(_pinId))
+      {
+        case COMMAND:
+          return _pinId - _cmd_idx;
+        case ANALOG:
+          return _pinId - _a_idx;
+        case DIGITAL:
+          return _pinId - _d_idx;
+        case DIGITAL_VIRTUAL:
+          return _pinId - _dv_idx;
+        case VIRTUAL:
+          return _pinId - _v_idx;
+      }
+      return -1;
+    }
+    static const int readPin(const int& _pinId)
+    {
+      return _begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_OUTPUT ? _pins[_pinId].value() : -1;
+    }
+    static const void writePin(const int& _pinId, const int& _value)
+    {
+      if (_begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_INPUT)
+        _pins[_pinId].value(_value);
+    }
+    static const int readAnalog(const int& _id)
+    {
+      return isAnalog(_a_idx + _id) ? readPin(_a_idx + _id) : -1;
+    }
+    static void writeAnalog(const int& _id, const int& _value)
+    {
+      if (isAnalog(_a_idx + _id))
+        writePin(_a_idx + _id, _value);
+    }
+    const int readDigital(const int& _id)
+    {
+      return isDigital(_d_idx + _id) ? readPin(_d_idx + _id) : -1;
+    }
+    static void writeDigital(const int& _id, const int& _value)
+    {
+      if (isDigital(_d_idx + _id))
+        writePin(_d_idx + _id, _value);
+    }
+    static const int readVirtualDigital(const int& _id)
+    {
+      return isVirtualDigital(_dv_idx + _id) ? readPin(_dv_idx + _id) : -1;
+    }
+    static void writeVirtualDigital(const int& _id, const int& _value)
+    {
+      if (isVirtualDigital(_dv_idx + _id))
+        writePin(_dv_idx + _id, _value);
+    }
+    static const int readVirtual(const int& _id)
+    {
+      return isVirtual(_v_idx + _id) ? readPin(_v_idx + _id) : -1;
+    }
+    static void writeVirtual(const int& _id, const int& _value)
+    {
+      if (isVirtual(_v_idx + _id))
+        writePin(_v_idx + _id, _value);
+    }
+    static void begin(const BoardType& _board, const string& _pass)
+    {
+      if (!_begin && _pass.length() > 0)
+      {
+        VirtuinoBoard::_pass = _pass;
+        int _a_cnt, _d_cnt;
+        std::vector<int> _pwm_idx;
+        switch (_board)
+        {
+          case NODEMCU_ESP_12E:
+            _a_cnt = 1;
+            _d_cnt = 11;
+            for (int i = 0; i < _d_cnt; i++) //ENABLE PWM ON ALL DIGITAL PINS
+              _pwm_idx.push_back(i);
+            break;
+        }
+        _cmd_idx = 0;
+        _a_idx = _cmd_idx + COMMAND_PIN_CNT;
+        _d_idx = _a_idx + _a_cnt;
+        _dv_idx = _d_idx + _d_cnt;
+        _v_idx = _dv_idx + VIRTUAL_PIN_CNT;
+        for (int i = 0; i < COMMAND_PIN_CNT; i++)
+          _pins.push_back(Pin(COMMAND, false, MODE_INPUT));
+        for (int i = 0; i < _a_cnt; i++)
+          _pins.push_back(Pin(ANALOG, false, MODE_ANY));
+        for (int i = 0; i < _d_cnt; i++)
+          _pins.push_back(Pin(DIGITAL, false, MODE_ANY));
+        for (int i = 0; i < VIRTUAL_PIN_CNT; i++)
+          _pins.push_back(Pin(DIGITAL_VIRTUAL, false, MODE_ANY));
+        for (int i = 0; i < VIRTUAL_PIN_CNT; i++)
+          _pins.push_back(Pin(VIRTUAL, false, MODE_ANY));
+        for (int i = 0; i < _pwm_idx.size(); i++)
+          _pins[_d_idx + i].pwm(true);
+        _begin = true;
+        Serial.println("[VIRTUINO] begin successfully");
+      }
+    }
+    static void end()
+    {
+      if (_begin)
+      {
+        _pins.clear();
+        _begin = false;
+      }
     }
     VirtuinoBoard()
     {
-      _begin = false;
-      _pass = "1234";
     }
 };
-int VirtuinoBoard::_analog_cnt;
-int VirtuinoBoard::_digital_cnt;
-int VirtuinoBoard::_virtual_cnt;
-std::map<int, string> VirtuinoBoard::_analog;
-std::map<int, string> VirtuinoBoard::_digital;
-std::map<int, string> VirtuinoBoard::_digital_board;
-std::map<int, string> VirtuinoBoard::_virtual;
-bool VirtuinoBoard::_apply;
+std::vector<Pin> VirtuinoBoard::_pins;
+bool VirtuinoBoard::_begin;
+int VirtuinoBoard::_cmd_idx, VirtuinoBoard::_a_idx, VirtuinoBoard::_d_idx, VirtuinoBoard::_dv_idx, VirtuinoBoard::_v_idx;
+string VirtuinoBoard::_pass;
 /**************************************************************************************
   Sketch
  ********/
@@ -1329,7 +1489,7 @@ static const byte   http_favicon_ico[]      = {
 
 class FaviconICO: public HTTPServlet
 {
-  public:
+  private:
     virtual void service(HTTPConnection& con)
     {
       con.contentType("image/png");
@@ -1342,7 +1502,7 @@ class FaviconICO: public HTTPServlet
 
 class PageRootIndex: public HTTPServlet
 {
-  public:
+  private:
     virtual void service(HTTPConnection& con)
     {
       if (con.path() != "/index.html")
@@ -1356,8 +1516,9 @@ class PageRootIndex: public HTTPServlet
     }
 };
 
-HTTPServer _server(80);
-PageRootIndex _page_root_index;
+HTTPServer server(80);
+PageRootIndex page_root_index;
+FaviconICO favicon_ico;
 VirtuinoBoard virtuino;
 
 void setup() {
@@ -1460,33 +1621,46 @@ void setup() {
     fmt.add(_mode == 0 ? WiFi.localIP()[2] : WiFi.softAPIP()[2]);
     fmt.add(_mode == 0 ? WiFi.localIP()[3] : WiFi.softAPIP()[3]);
     Serial.println(fmt.format(" ok ([0].[1].[2].[3])"));
-    _server.install("/favicon.ico", new FaviconICO());
-    _server.install("/", &_page_root_index);
-    _server.install("/index.html", &_page_root_index);
-    VirtuinoBoard::apply(NODEMCU_1_0);
-    virtuino.begin(_server, virtuino_pass);
-    _server.begin();
+
+    server.install("/favicon.ico", &favicon_ico);
+    server.install("/", &page_root_index);
+    server.install("/index.html", &page_root_index);
+    /**********************************************
+      Virtuino
+     **********************************************/
+    //1. Begin use board
+    VirtuinoBoard::begin(NODEMCU_ESP_12E, virtuino_pass);
+    //2.1 Set V00 mode as OUTPUT
+    VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 0), MODE_OUTPUT);
+    //2.2 Set V01 mode as OUTPUT
+    VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 1), MODE_OUTPUT);
+    //3. Install virtuino class as servlet
+    server.install(VIRTUINO_PATH, &virtuino);
+
+    server.begin();
   }
 }
 
-long next_update = millis(), next_pause = 5000, //5 sec
-     led_update = millis(), led_next_pause = 10000; //10 sec
+long rnd_next_update = millis(), rnd_delay = 5000,  //5 sec
+     led_next_update = millis(), led_delay = 10000; //10 sec
+bool blink = false;
 void loop() {
-  _server.waitFor();
+  server.waitFor();
   /**********************************************
     Virtuino Random Example, CMD: !V00=?$
    **********************************************/
-  if (millis() >= next_update)
+  if (millis() >= rnd_next_update)
   {
-    next_update += next_pause;
-    VirtuinoBoard::virtualWrite(0, rand() % 255); //0...255
+    rnd_next_update += rnd_delay;
+    VirtuinoBoard::writePin(virtuino.pinId(VIRTUAL, 0), rand() % 255); //0...255
   }
   /**********************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
    **********************************************/
-  if (millis() >= led_update)
+  if (millis() >= led_next_update)
   {
-    led_update += led_next_pause;
-    VirtuinoBoard::virtualWrite(1, utils.str2int(VirtuinoBoard::virtualRead(1)) == 1 ? 0 : 1);
+    led_next_update += rnd_delay;
+    VirtuinoBoard::writePin(virtuino.pinId(VIRTUAL, 1), !blink); //0...255
+    blink != blink;
   }
 }
