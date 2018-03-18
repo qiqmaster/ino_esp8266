@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN   = 6.6,
-                    VERSION_CODE   = 7.3,
+                    VERSION_CODE   = 7.31,
                     VERSION_EXTRA  = 180318;
 static const string VERSION_PREFIX = "-perf";
 static const string versionString()
@@ -1654,9 +1654,9 @@ void loop() {
     rnd_next_update += rnd_delay;
     VirtuinoBoard::writePin(virtuino.pinId(VIRTUAL, 0), rand() % 255); //0...255
   }
-  /**********************************************
+  /************************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
-   **********************************************/
+   ************************************************/
   if (millis() >= led_next_update)
   {
     led_next_update += rnd_delay;
