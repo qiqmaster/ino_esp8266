@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN   = 6.6,
-                    VERSION_CODE   = 7.33,
+                    VERSION_CODE   = 7.5,
                     VERSION_EXTRA  = 180318;
 static const string VERSION_PREFIX = "-perf";
 static const string versionString()
@@ -1242,7 +1242,7 @@ class VirtuinoBoard: public HTTPServlet
       }
       for (std::map<int, char>::iterator cur = _in.begin(); cur != _in.end(); cur++)
       {
-        writePin((*cur).first, Utils::str2int(_tmp[(*cur).first]));
+        _pins[(*cur).first].value(Utils::str2int(_tmp[(*cur).first]));
         _out.insert(std::pair<int, char>((*cur).first, (*cur).second));
       }
       _in.clear();
@@ -1634,6 +1634,8 @@ void setup() {
     VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 0), MODE_OUTPUT);
     //2.2 Set V01 mode as OUTPUT
     VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 1), MODE_OUTPUT);
+    //2.3 Set V02 mode as INPUT
+    VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 2), MODE_INPUT);
     //3. Install virtuino class as servlet
     server.install(VIRTUINO_PATH, &virtuino);
 
@@ -1642,8 +1644,9 @@ void setup() {
 }
 
 long rnd_next_update = millis(), rnd_delay = 5000,  //5 sec
-     led_next_update = millis(), led_delay = 10000; //10 sec
-bool blink = false;
+     led_next_update = millis(), led_delay = 10000, //10 sec
+     btn_next_update = millis(), btn_delay = 500;   //0.5 sec
+bool blink = false, enable = false;
 void loop() {
   server.waitFor();
   /**********************************************
@@ -1652,7 +1655,7 @@ void loop() {
   if (millis() >= rnd_next_update)
   {
     rnd_next_update += rnd_delay;
-    VirtuinoBoard::writePin(VirtuinoBoard::pinId(VIRTUAL, 0), rand() % 255); //0...255
+    VirtuinoBoard::writePin(VirtuinoBoard::pinId(VIRTUAL, 0), enable ? rand() % 255 : 0); //0...255
   }
   /************************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
@@ -1660,7 +1663,15 @@ void loop() {
   if (millis() >= led_next_update)
   {
     led_next_update += rnd_delay;
-    VirtuinoBoard::writePin(VirtuinoBoard::pinId(VIRTUAL, 1), !blink); //0...255
-    blink != blink;
+    blink = enable ? !blink : false;
+    VirtuinoBoard::writePin(VirtuinoBoard::pinId(VIRTUAL, 1), blink); //0-OFF, 1-ON
+  }
+  /*******************************************
+    Virtuino Button Checker, CMD: !V02=<0|1>$
+   *******************************************/
+  if (millis() >= btn_next_update)
+  {
+    btn_next_update += btn_delay;
+    enable = VirtuinoBoard::readPin(VirtuinoBoard::pinId(VIRTUAL, 2)) == 1;
   }
 }
