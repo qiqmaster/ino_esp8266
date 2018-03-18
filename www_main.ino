@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN           = 6.6,
-                    VERSION_CODE           = 8.12,
+                    VERSION_CODE           = 8.13,
                     VERSION_EXTRA          = 180318;
 static const string VERSION_PREFIX         = "-perf";
 static const string versionString()
@@ -265,27 +265,23 @@ class Formatter
 class NanoFS
 {
   private:
-    bool _mount_reason, _mount;
-    Formatter _fmt;
+    static bool _mount_reason, _mount;
+    NanoFS() {}
   public:
-    NanoFS()
-    {
-      _mount_reason = false;
-      _mount = false;
-    }
-    const bool mount()
+    static const bool mount()
     {
       if (!_mount_reason)
       {
         _mount_reason = true;
         _mount = SPIFFS.begin();
+        Formatter _fmt;
         _fmt.add(_mount ? "ok" : "failed");
         Serial.println(_fmt.format("[SPIFFS] Mounting partition... [0]"));
         _fmt.reset();
       }
       return _mount;
     }
-    void unmount() {
+    static void unmount() {
       if (_mount_reason && _mount)
       {
         SPIFFS.end();
@@ -295,7 +291,8 @@ class NanoFS
       }
     }
 };
-NanoFS nanofs;
+bool NanoFS::_mount_reason                 = false,
+     NanoFS::_mount;
 /**************************************************************************************
   HTTP
  ********/
@@ -1616,7 +1613,7 @@ VirtuinoBoard virtuino;
 void setup() {
   delay(1000);
   Serial.begin(115200);
-  nanofs.mount();
+  NanoFS::mount();
   Formatter fmt;
   int _cnt = 0, _cnt_reconnect = 0, _mode = wlan_mode;
   bool _echo = false, _wait = true;
