@@ -6,10 +6,10 @@
 #include <vector>
 #define string String
 #include <FS.h>
-static const double VERSION_MAIN   = 6.6,
-                    VERSION_CODE   = 7.5,
-                    VERSION_EXTRA  = 180318;
-static const string VERSION_PREFIX = "-perf";
+static const double VERSION_MAIN           = 6.6,
+                    VERSION_CODE           = 8.1,
+                    VERSION_EXTRA          = 180318;
+static const string VERSION_PREFIX         = "-perf";
 static const string versionString()
 {
   string out = "v";
@@ -299,13 +299,12 @@ NanoFS nanofs;
 /**************************************************************************************
   HTTP
  ********/
-static const string HTTP_GET                                 = "GET",
-                    HTTP_POST                                = "POST";
-
-static const int    HTTP_MAX_DATA_WAIT                       = 5000,
-                    HTTP_MAX_POST_WAIT                       = 5000,
-                    HTTP_MAX_SEND_WAIT                       = 5000,
-                    HTTP_MAX_CLOSE_WAIT                      = 2000;
+static const string HTTP_GET               = "GET",
+                    HTTP_POST              = "POST";
+static const int    HTTP_MAX_DATA_WAIT     = 5000,
+                    HTTP_MAX_POST_WAIT     = 5000,
+                    HTTP_MAX_SEND_WAIT     = 5000,
+                    HTTP_MAX_CLOSE_WAIT    = 2000;
 enum HTTPStatus
 {
   /**********************************************
@@ -1021,7 +1020,7 @@ enum ErrorId
   ERROR_UNKNOWN_CMD
 };
 
-static const string VIRTUINO_PATH = "/virtuino";
+static const string VIRTUINO_PATH          = "/virtuino";
 
 class VirtuinoBoard: public HTTPServlet
 {
@@ -1268,15 +1267,9 @@ class VirtuinoBoard: public HTTPServlet
     {
       return _pins.size();
     }
-    static const PinMode pinMode(const int& _pinId)
-    {
-      return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].mode() : MODE_ANY;
-    }
-    static void pinMode(const int& _pinId, const PinMode& _mode)
-    {
-      if (_begin && _pinId >= 0 && _pinId < _pins.size())
-        _pins[_pinId].mode(_mode);
-    }
+    /*******************************************
+      PinType
+     *******************************************/
     static const PinType pinType(const int& _pinId)
     {
       return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].type() : UNKNOWN;
@@ -1293,7 +1286,7 @@ class VirtuinoBoard: public HTTPServlet
     {
       return pinType(_pinId) == DIGITAL;
     }
-    static const bool isVirtualDigital(const int& _pinId)
+    static const bool isDigitalVirtual(const int& _pinId)
     {
       return pinType(_pinId) == DIGITAL_VIRTUAL;
     }
@@ -1305,6 +1298,74 @@ class VirtuinoBoard: public HTTPServlet
     {
       return isDigital(_pinId) && _pins[_pinId].pwm();
     }
+    /*******************************************
+      PinMode
+     *******************************************/
+    static const PinMode pinMode(const int& _pinId)
+    {
+      return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].mode() : MODE_ANY;
+    }
+    static void pinMode(const int& _pinId, const PinMode& _mode)
+    {
+      if (_begin && _pinId >= 0 && _pinId < _pins.size())
+        _pins[_pinId].mode(_mode);
+    }
+    static const PinMode pinMode(const PinType& _type, const int& _id)
+    {
+      switch (_type)
+      {
+        case COMMAND:
+          if (isCommand(_cmd_idx + _id))
+            return pinMode(_cmd_idx + _id);
+          break;
+        case ANALOG:
+          if (isAnalog(_a_idx + _id))
+            return pinMode(_a_idx + _id);
+          break;
+        case DIGITAL:
+          if (isDigital(_d_idx + _id))
+            return pinMode(_d_idx + _id);
+          break;
+        case DIGITAL_VIRTUAL:
+          if (isDigitalVirtual(_dv_idx + _id))
+            return pinMode(_dv_idx + _id);
+          break;
+        case VIRTUAL:
+          if (isVirtual(_v_idx + _id))
+            return pinMode(_v_idx + _id);
+          break;
+      }
+      return MODE_ANY;
+    }
+    static void pinMode(const PinType& _type, const int& _id, const PinMode& _mode)
+    {
+      switch (_type)
+      {
+        case COMMAND:
+          if (isCommand(_cmd_idx + _id))
+            pinMode(_cmd_idx + _id, _mode);
+          break;
+        case ANALOG:
+          if (isAnalog(_a_idx + _id))
+            pinMode(_a_idx + _id, _mode);
+          break;
+        case DIGITAL:
+          if (isDigital(_d_idx + _id))
+            pinMode(_d_idx + _id, _mode);
+          break;
+        case DIGITAL_VIRTUAL:
+          if (isDigitalVirtual(_dv_idx + _id))
+            pinMode(_dv_idx + _id, _mode);
+          break;
+        case VIRTUAL:
+          if (isVirtual(_v_idx + _id))
+            pinMode(_v_idx + _id, _mode);
+          break;
+      }
+    }
+    /*******************************************
+      PinId
+     *******************************************/
     static const int pinId(const PinType& _type, const int& _id)
     {
       switch (_type)
@@ -1322,7 +1383,7 @@ class VirtuinoBoard: public HTTPServlet
             return _d_idx + _id;
           break;
         case DIGITAL_VIRTUAL:
-          if (isVirtualDigital(_dv_idx + _id))
+          if (isDigitalVirtual(_dv_idx + _id))
             return _dv_idx + _id;
           break;
         case VIRTUAL:
@@ -1349,56 +1410,79 @@ class VirtuinoBoard: public HTTPServlet
       }
       return -1;
     }
+    /*******************************************
+      ReadPin
+     *******************************************/
     static const int readPin(const int& _pinId)
     {
       return _begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_OUTPUT ? _pins[_pinId].value() : -1;
     }
+    static const int readPin(const PinType& _type, const int& _id)
+    {
+      switch (_type) {
+        case COMMAND:
+          if (isCommand(_cmd_idx + _id))
+            return readPin(_cmd_idx + _id);
+          break;
+        case ANALOG:
+          if (isAnalog(_a_idx + _id))
+            return readPin(_a_idx + _id);
+          break;
+        case DIGITAL:
+          if (isDigital(_d_idx + _id))
+            return readPin(_d_idx + _id);
+          break;
+        case DIGITAL_VIRTUAL:
+          if (isDigitalVirtual(_dv_idx + _id))
+            return readPin(_dv_idx + _id);
+          break;
+        case VIRTUAL:
+          if (isVirtual(_v_idx + _id))
+            return readPin(_v_idx + _id);
+          break;
+      }
+      return -1;
+    }
+    /*******************************************
+      WritePin
+     *******************************************/
     static const void writePin(const int& _pinId, const int& _value)
     {
       if (_begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_INPUT)
         _pins[_pinId].value(_value);
     }
-    static const int readAnalog(const int& _id)
+    static void writePin(const PinType& _type, const int& _id, const int& _value)
     {
-      return isAnalog(_a_idx + _id) ? readPin(_a_idx + _id) : -1;
+      switch (_type) {
+        case COMMAND:
+          if (isCommand(_cmd_idx + _id))
+            writePin(_cmd_idx + _id, _value);
+          break;
+        case ANALOG:
+          if (isAnalog(_a_idx + _id))
+            writePin(_a_idx + _id, _value);
+          break;
+        case DIGITAL:
+          if (isDigital(_d_idx + _id))
+            writePin(_d_idx + _id, _value);
+          break;
+        case DIGITAL_VIRTUAL:
+          if (isDigitalVirtual(_dv_idx + _id))
+            writePin(_dv_idx + _id, _value);
+          break;
+        case VIRTUAL:
+          if (isVirtual(_v_idx + _id))
+            writePin(_v_idx + _id, _value);
+          break;
+      }
     }
-    static void writeAnalog(const int& _id, const int& _value)
-    {
-      if (isAnalog(_a_idx + _id))
-        writePin(_a_idx + _id, _value);
-    }
-    const int readDigital(const int& _id)
-    {
-      return isDigital(_d_idx + _id) ? readPin(_d_idx + _id) : -1;
-    }
-    static void writeDigital(const int& _id, const int& _value)
-    {
-      if (isDigital(_d_idx + _id))
-        writePin(_d_idx + _id, _value);
-    }
-    static const int readVirtualDigital(const int& _id)
-    {
-      return isVirtualDigital(_dv_idx + _id) ? readPin(_dv_idx + _id) : -1;
-    }
-    static void writeVirtualDigital(const int& _id, const int& _value)
-    {
-      if (isVirtualDigital(_dv_idx + _id))
-        writePin(_dv_idx + _id, _value);
-    }
-    static const int readVirtual(const int& _id)
-    {
-      return isVirtual(_v_idx + _id) ? readPin(_v_idx + _id) : -1;
-    }
-    static void writeVirtual(const int& _id, const int& _value)
-    {
-      if (isVirtual(_v_idx + _id))
-        writePin(_v_idx + _id, _value);
-    }
+    /*******************************************
+      Control
+     *******************************************/
     static void begin(const BoardType& _board, const string& _pass)
     {
       if (!_begin && _pass.length() > 0)
       {
-        VirtuinoBoard::_pass = _pass;
         int _a_cnt, _d_cnt;
         std::vector<int> _pwm_idx;
         switch (_board)
@@ -1408,8 +1492,11 @@ class VirtuinoBoard: public HTTPServlet
             _d_cnt = 11;
             for (int i = 0; i < _d_cnt; i++) //ENABLE PWM ON ALL DIGITAL PINS
               _pwm_idx.push_back(i);
-            break;
+          default:
+            Serial.println("[VIRTUINO] begin failed: unknown board type!");
+            return;
         }
+        VirtuinoBoard::_pass = _pass;
         _cmd_idx = 0;
         _a_idx = _cmd_idx + COMMAND_PIN_CNT;
         _d_idx = _a_idx + _a_cnt;
@@ -1439,9 +1526,7 @@ class VirtuinoBoard: public HTTPServlet
         _begin = false;
       }
     }
-    VirtuinoBoard()
-    {
-    }
+    VirtuinoBoard() {}
 };
 std::vector<Pin> VirtuinoBoard::_pins;
 bool VirtuinoBoard::_begin;
@@ -1450,19 +1535,19 @@ string VirtuinoBoard::_pass;
 /**************************************************************************************
   Sketch
  ********/
-static const string wlan_ap_ssid            = "ESP8266",
-                    wlan_ap_pass            = "changeme",
-                    wlan_sta_ssid           = "<sta_ssid>",
-                    wlan_sta_pass           = "<sta_pass>",
-                    virtuino_pass           = "1234";
-static const bool   wlan_ap_secure          = true,
-                    wlan_sta_secure         = true,
-                    wlan_sta_reconnect      = true;
+static const string wlan_ap_ssid           = "ESP8266",
+                    wlan_ap_pass           = "changeme",
+                    wlan_sta_ssid          = "<sta_ssid>",
+                    wlan_sta_pass          = "<sta_pass>",
+                    virtuino_pass          = "1234";
+static const bool   wlan_ap_secure         = true,
+                    wlan_sta_secure        = true,
+                    wlan_sta_reconnect     = true;
 
-static const int    wlan_mode               = 0,
-                    wlan_sta_reconnect_cnt  = 2;
+static const int    wlan_mode              = 0,
+                    wlan_sta_reconnect_cnt = 2;
 
-static const byte   http_favicon_ico[]      = {
+static const byte   http_favicon_ico[]     = {
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
   0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x06, 0x00,
   0x00, 0x00, 0x1f, 0xf3, 0xff, 0x61, 0x00, 0x00, 0x00, 0x01, 0x73, 0x52, 0x47, 0x42, 0x00, 0xae,
@@ -1631,11 +1716,11 @@ void setup() {
     //1. Begin use board
     VirtuinoBoard::begin(NODEMCU_ESP_12E, virtuino_pass);
     //2.1 Set V00 mode as OUTPUT
-    VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 0), MODE_OUTPUT);
+    VirtuinoBoard::pinMode(VIRTUAL, 0, MODE_OUTPUT);
     //2.2 Set V01 mode as OUTPUT
-    VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 1), MODE_OUTPUT);
+    VirtuinoBoard::pinMode(VIRTUAL, 1, MODE_OUTPUT);
     //2.3 Set V02 mode as INPUT
-    VirtuinoBoard::pinMode(VirtuinoBoard::pinId(VIRTUAL, 2), MODE_INPUT);
+    VirtuinoBoard::pinMode(VIRTUAL, 2, MODE_INPUT);
     //3. Install virtuino class as servlet
     server.install(VIRTUINO_PATH, &virtuino);
 
@@ -1643,9 +1728,9 @@ void setup() {
   }
 }
 
-long rnd_next_update = millis(), rnd_delay = 5000,  //5 sec
-     led_next_update = millis(), led_delay = 10000, //10 sec
-     btn_next_update = millis(), btn_delay = 500;   //0.5 sec
+long rnd_next_update = millis(), rnd_delay = 5000,  //! 5 sec
+     led_next_update = millis(), led_delay = 10000, //! 10 sec
+     btn_next_update = millis(), btn_delay = 500;   //! 0.5 sec
 bool blink = false, enable = false;
 void loop() {
   server.waitFor();
@@ -1655,16 +1740,16 @@ void loop() {
   if (millis() >= rnd_next_update)
   {
     rnd_next_update += rnd_delay;
-    VirtuinoBoard::writePin(VirtuinoBoard::pinId(VIRTUAL, 0), enable ? rand() % 255 : 0); //0...255
+    VirtuinoBoard::writePin(VIRTUAL, 0 , enable ? rand() % 255 : 0); //! 0...255
   }
   /************************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
    ************************************************/
   if (millis() >= led_next_update)
   {
-    led_next_update += rnd_delay;
+    led_next_update += led_delay;
     blink = enable ? !blink : false;
-    VirtuinoBoard::writePin(VirtuinoBoard::pinId(VIRTUAL, 1), blink); //0-OFF, 1-ON
+    VirtuinoBoard::writePin(VIRTUAL, 1 , blink); //! 0-OFF, 1-ON
   }
   /*******************************************
     Virtuino Button Checker, CMD: !V02=<0|1>$
@@ -1672,6 +1757,6 @@ void loop() {
   if (millis() >= btn_next_update)
   {
     btn_next_update += btn_delay;
-    enable = VirtuinoBoard::readPin(VirtuinoBoard::pinId(VIRTUAL, 2)) == 1;
+    enable = VirtuinoBoard::readPin(VIRTUAL, 2) == 1;
   }
 }
