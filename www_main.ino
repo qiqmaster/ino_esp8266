@@ -7,7 +7,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN   = 6.6,
-                    VERSION_CODE   = 7.32,
+                    VERSION_CODE   = 7.33,
                     VERSION_EXTRA  = 180318;
 static const string VERSION_PREFIX = "-perf";
 static const string versionString()
@@ -1264,7 +1264,7 @@ class VirtuinoBoard: public HTTPServlet
       send(out, con);
     }
   public:
-    static const int pinCound()
+    static const int pinCount()
     {
       return _pins.size();
     }
