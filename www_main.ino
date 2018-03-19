@@ -8,7 +8,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN    = 7.10,
-                    VERSION_CODE    = 8.41,
+                    VERSION_CODE    = 8.42,
                     VERSION_EXTRA   = 180320;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1672,10 +1672,6 @@ class VirtuinoBoard: public HTTPServlet
             fmt.add("VIRTUAL");
             break;
         }
-        //                            PWM | PIN_ID | TYPE_ID | MODE | DESCRIPTION
-        //                             ~     [00]      C00     RXTX        COMMAND
-        //                                                            DIGITAL VIRTUAL
-
         _print.println(fmt.format("   [0]     [[1][2]]      [3][4][5]     [6]   [7]"));
       }
     }
