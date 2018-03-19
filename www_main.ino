@@ -7,8 +7,8 @@
 #include <vector>
 #define string String
 #include <FS.h>
-static const double VERSION_MAIN    = 7.1,
-                    VERSION_CODE    = 8.4,
+static const double VERSION_MAIN    = 7.10,
+                    VERSION_CODE    = 8.41,
                     VERSION_EXTRA   = 180320;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1536,7 +1536,11 @@ class VirtuinoBoard: public HTTPServlet
     /*********
       Control
      *********/
-    static void begin(const BoardType& _board, const string& _pass, const bool& _printMap)
+    static const bool ready()
+    {
+      return _begin;
+    }
+    static void begin(const BoardType& _board, const string& _pass)
     {
       if (!_begin && _pass.length() > 0)
       {
@@ -1593,12 +1597,7 @@ class VirtuinoBoard: public HTTPServlet
           _pins[_d_idx + i].pwm(true);
         _begin = true;
         Serial.println("[VIRTUINO] begin successfully");
-        if (_printMap) printBoardMap(Serial);
       }
-    }
-    static void begin(const BoardType& _board, const string& _pass)
-    {
-      begin(_board, _pass, false);
     }
     static void end()
     {
@@ -1613,7 +1612,7 @@ class VirtuinoBoard: public HTTPServlet
      **********/
     static void printBoardMap(Print& _print)
     {
-      _print.println("------- VIRTUINO BOARD MAP -------\n  PWM | PIN_ID | TYPE_ID | DESCRIPTION");
+      _print.println("------- VIRTUINO BOARD MAP -------\n  PWM | PIN_ID | TYPE_ID | MODE | DESCRIPTION");
       if (!_begin) return;
       Formatter fmt;
       for (int i = 0; i < _pins.size(); i++)
@@ -1643,6 +1642,18 @@ class VirtuinoBoard: public HTTPServlet
         }
         fmt.add(id < 10 ? Utils::int2str(0) : "");
         fmt.add(Utils::int2str(id));
+        switch (pinMode(i))
+        {
+          case MODE_ANY:
+            fmt.add("RXTX");
+            break;
+          case MODE_INPUT:
+            fmt.add(" RX ");
+            break;
+          case MODE_OUTPUT:
+            fmt.add(" TX ");
+            break;
+        }
         switch (pinType(i))
         {
           case COMMAND:
@@ -1661,9 +1672,11 @@ class VirtuinoBoard: public HTTPServlet
             fmt.add("VIRTUAL");
             break;
         }
-        //                            PWM | PIN_ID | TYPE_ID | DESCRIPTION
-        //                             ~     [00]      C00     COMMAND
-        _print.println(fmt.format("   [0]     [[1][2]]      [3][4][5]     [6]"));
+        //                            PWM | PIN_ID | TYPE_ID | MODE | DESCRIPTION
+        //                             ~     [00]      C00     RXTX        COMMAND
+        //                                                            DIGITAL VIRTUAL
+
+        _print.println(fmt.format("   [0]     [[1][2]]      [3][4][5]     [6]   [7]"));
       }
     }
 };
@@ -2004,15 +2017,19 @@ void setup() {
       Virtuino
      **********/
     //! 1. Begin using board
-    VirtuinoBoard::begin(_virtuino_board, _virtuino_pass, true);
-    //! 2.1 Set V00 mode as OUTPUT
-    VirtuinoBoard::pinMode(VIRTUAL, 0, MODE_OUTPUT);
-    //! 2.2 Set V01 mode as OUTPUT
-    VirtuinoBoard::pinMode(VIRTUAL, 1, MODE_OUTPUT);
-    //! 2.3 Set V02 mode as INPUT
-    VirtuinoBoard::pinMode(VIRTUAL, 2, MODE_INPUT);
-    //! 3. Install virtuino class as servlet
-    _server.install(VIRTUINO_PATH, &_virtuino);
+    VirtuinoBoard::begin(_virtuino_board, _virtuino_pass);
+    if (VirtuinoBoard::ready())
+    {
+      //! 2.1 Set V00 mode as OUTPUT
+      VirtuinoBoard::pinMode(VIRTUAL, 0, MODE_OUTPUT);
+      //! 2.2 Set V01 mode as OUTPUT
+      VirtuinoBoard::pinMode(VIRTUAL, 1, MODE_OUTPUT);
+      //! 2.3 Set V02 mode as INPUT
+      VirtuinoBoard::pinMode(VIRTUAL, 2, MODE_INPUT);
+      //! 3. Install virtuino class as servlet
+      _server.install(VIRTUINO_PATH, &_virtuino);
+      VirtuinoBoard::printBoardMap(Serial);
+    }
     _server.begin();
   }
 }
@@ -2032,7 +2049,7 @@ void loop() {
   /*******************************************
     Virtuino Button Checker, CMD: !V02=<0|1>$
    *******************************************/
-  if (millis() >= _btn_next_update)
+  if (VirtuinoBoard::ready() && millis() >= _btn_next_update)
   {
     _btn_next_update += _btn_delay;
     bool last_enable = _enable;
@@ -2042,7 +2059,7 @@ void loop() {
   /***************************************
     Virtuino Random Example, CMD: !V00=?$
    ***************************************/
-  if (millis() >= _rnd_next_update || change_reason)
+  if (VirtuinoBoard::ready() && (millis() >= _rnd_next_update || change_reason))
   {
     _rnd_next_update += _rnd_delay;
     VirtuinoBoard::writePin(VIRTUAL, 0 , _enable ? rand() % 255 : 0); //! 0...255
@@ -2050,7 +2067,7 @@ void loop() {
   /************************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
    ************************************************/
-  if (millis() >= _led_next_update || change_reason)
+  if (VirtuinoBoard::ready() && (millis() >= _led_next_update || change_reason))
   {
     _led_next_update += _led_delay;
     _blink = _enable ? !_blink : false;
