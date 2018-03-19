@@ -8,7 +8,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN    = 7.10,
-                    VERSION_CODE    = 8.42,
+                    VERSION_CODE    = 8.43,
                     VERSION_EXTRA   = 180320;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -2000,6 +2000,7 @@ static HTTPServer _server(_http_port);
 void setup() {
   delay(1000);
   Serial.begin(115200);
+  //Serial.setDebugOutput(true);
   NanoFS::mount();
   //WiFiManager::beginAP();
   //WiFiManager::beginAP(_wlan_ssid,_wlan_pass,false);
