@@ -1,3 +1,4 @@
+
 /**************************************************************************************
   Arduino ESP8266 WWW Main
  **************************************************************************************/
@@ -6,10 +7,10 @@
 #include <vector>
 #define string String
 #include <FS.h>
-static const double VERSION_MAIN           = 6.6,
-                    VERSION_CODE           = 8.13,
-                    VERSION_EXTRA          = 180318;
-static const string VERSION_PREFIX         = "-perf";
+static const double VERSION_MAIN    = 7.1,
+                    VERSION_CODE    = 8.4,
+                    VERSION_EXTRA   = 180320;
+static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
 {
   string out = "v";
@@ -25,14 +26,15 @@ static const string versionString()
 /**************************************************************************************
   Utils
  *******/
+static const string _base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 class Utils
 {
   private:
     Utils() {}
   public:
-    /**********************************************
+    /********
       String
-     **********************************************/
+     ********/
     static const int indexOf(const string& _s, const int& _start, const char& _c)
     {
       for (int i = _start; i < _s.length(); i++)
@@ -80,9 +82,9 @@ class Utils
         out = substring(out, 0, out.length() - 1);
       return out;
     }
-    /**********************************************
+    /********
       Number
-     **********************************************/
+     ********/
     static const int pow(const int& _in, const int& _pow)
     {
       if (_pow < 1) return 1;
@@ -136,9 +138,9 @@ class Utils
     {
       return string(_d, DEC);
     }
-    /**********************************************
+    /*****
       URL
-     **********************************************/
+     *****/
     static const string encodeURL(const string& _s)
     {
       string out = "";
@@ -196,6 +198,33 @@ class Utils
           out += _s[i];
       }
       return out;
+    }
+    /********
+      Base64
+     ********/
+    static const string encodeBase64(const char* _s, const int& _length)
+    {
+      string out = "";
+      int ix = _length - _length % 3;
+      for (int i = 0; i < ix; i += 3)
+      {
+        out += _base64_chars[ (_s[i] & 0xfc) >> 2 ];
+        out += _base64_chars[ ((_s[i] & 0x03) << 4) + ((_s[i + 1] & 0xf0) >> 4) ];
+        out += _base64_chars[ ((_s[i + 1] & 0x0f) << 2) + ((_s[i + 2] & 0xc0) >> 6) ];
+        out += _base64_chars[ _s[i + 2] & 0x3f ];
+      }
+      if (ix < _length)
+      {
+        out += _base64_chars[ (_s[ix] & 0xfc) >> 2];
+        out += _base64_chars[ ((_s[ix] & 0x03) << 4) + (ix + 1 < _length ? (_s[ix + 1] & 0xf0) >> 4 : 0)];
+        out += (ix + 1 < _length ? _base64_chars[ ((_s[ix + 1] & 0x0f) << 2)] : '=');
+        out += '=';
+      }
+      return out;
+    }
+    static const string encodeBase64(const string& _s)
+    {
+      return encodeBase64(_s.c_str(), _s.length());
     }
 };
 /**************************************************************************************
@@ -291,28 +320,28 @@ class NanoFS
       }
     }
 };
-bool NanoFS::_mount_reason                 = false,
-     NanoFS::_mount;
+bool  NanoFS::_mount_reason = false,
+              NanoFS::_mount;
 /**************************************************************************************
   HTTP
- ********/
-static const string HTTP_GET               = "GET",
-                    HTTP_POST              = "POST";
-static const int    HTTP_MAX_DATA_WAIT     = 5000,
-                    HTTP_MAX_POST_WAIT     = 5000,
-                    HTTP_MAX_SEND_WAIT     = 5000,
-                    HTTP_MAX_CLOSE_WAIT    = 2000;
+ ******/
+static const string HTTP_GET            = "GET",
+                    HTTP_POST           = "POST";
+static const int    HTTP_MAX_DATA_WAIT  = 5000,
+                    HTTP_MAX_POST_WAIT  = 5000,
+                    HTTP_MAX_SEND_WAIT  = 5000,
+                    HTTP_MAX_CLOSE_WAIT = 2000;
 enum HTTPStatus
 {
-  /**********************************************
+  /*************
     Information
-   **********************************************/
+   *************/
   HTTP_100_CONTINUE                        = 100,
   HTTP_101_SWITCHING_PROTOCOLS             = 101,
   HTTP_102_PROCESSING                      = 102,
-  /**********************************************
+  /*********
     Success
-   **********************************************/
+   *********/
   HTTP_200_OK                              = 200,
   HTTP_201_CREATED                         = 201,
   HTTP_202_ACCEPTED                        = 202,
@@ -323,9 +352,9 @@ enum HTTPStatus
   HTTP_207_MULTISTATUS                     = 207,
   HTTP_208_ALREADY_REPORTED                = 208,
   HTTP_226_IM_USED                         = 226,
-  /**********************************************
+  /**************
     Redirections
-   **********************************************/
+   **************/
   HTTP_300_MULTIPLE_CHOICES                = 300,
   HTTP_301_MOVED_PERMANENTLY               = 301,
   HTTP_302_MOVED_TEMPORARILY               = 302,
@@ -335,60 +364,60 @@ enum HTTPStatus
   HTTP_305_USE_PROXY                       = 305,
   HTTP_307_TEMPORARY_REDIRECT              = 307,
   HTTP_308_PERMANTED_REDIRECT              = 308,
-  /**********************************************
+  /**************
     Client error
-   **********************************************/
-  HTTP_400_BAD_REQUEST                     = 400,
-  HTTP_401_UNAUTHORIZED                    = 401,
-  HTTP_402_PAYMENT_REQUIRED                = 402,
-  HTTP_403_FORBIDDEN                       = 403,
-  HTTP_404_NOT_FOUND                       = 404,
-  HTTP_405_METHOD_NOT_ALLOWED              = 405,
-  HTTP_406_NOT_ACCEPTABLE                  = 406,
-  HTTP_407_PROXY_AUTHENTICATION_REQUIRED   = 407,
-  HTTP_408_REQUIEST_TIMEOUT                = 408,
-  HTTP_409_CONFLICT                        = 409,
-  HTTP_410_GONE                            = 410,
-  HTTP_411_LENGTH_REQUIRED                 = 411,
-  HTTP_412_PRECONDITION_FAILED             = 412,
-  HTTP_413_PAYLOAD_TOO_LARGE               = 413,
-  HTTP_414_URI_TOO_LONG                    = 414,
-  HTTP_415_UNSUPPORTED_MEDIA_TYPE          = 415,
-  HTTP_416_RANGE_NOT_SATISFIABLE           = 416,
-  HTTP_417_EXPECTATION_FAILED              = 417,
-  HTTP_421_MISDIRECTED_REQUEST             = 421,
-  HTTP_422_UNPROCESSABLE_ENTITY            = 422,
-  HTTP_423_LOCKED                          = 423,
-  HTTP_424_FAILED_DEPENDENCY               = 424,
-  HTTP_426_UPGRADE_REQUIRED                = 426,
-  HTTP_428_PRECONDITION_REQUIRED           = 428,
-  HTTP_429_TOO_MANY_REQUESTS               = 429,
-  HTTP_431_REQUEST_HEADER_FIELDS_TOO_LARGE = 431,
-  HTTP_444_CLOSED_WITHOUT_HEADERS          = 444,
-  HTTP_449_RETRY_WITH                      = 429,
-  HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS   = 451,
-  /**********************************************
-     Server error
-   **********************************************/
-  HTTP_500_INTERNAL_SERVER_ERROR           = 500,
-  HTTP_501_NOT_IMPLEMENTED                 = 501,
-  HTTP_502_BAD_GATEWAY                     = 502,
-  HTTP_503_SERVICE_UNAVAILABLE             = 503,
-  HTTP_504_GATEWAY_TIMEOUT                 = 504,
-  HTTP_505_HTTP_VERSION_NOT_SUPPORTED      = 505,
-  HTTP_506_VARIANT_ALSO_NEGOTIATES         = 506,
-  HTTP_507_INSUFFICIENT_STORAGE            = 507,
-  HTTP_508_LOOP_DETECTED                   = 508,
-  HTTP_509_BANDWITH_LIMIT_EXCEEDED         = 509,
-  HTTP_510_NOT_EXTENDED                    = 510,
-  HTTP_511_NETWORK_AUTHENTICATION_REQUIRED = 511,
-  HTTP_520_UNKNOWN_ERROR                   = 520,
-  HTTP_521_WEB_SERVER_IS_DOWN              = 521,
-  HTTP_522_CONNECTION_TIMED_OUT            = 522,
-  HTTP_523_ORIGIN_IS_UNREACHABLE           = 523,
-  HTTP_524_A_TIMEOUT_OCCURRED              = 524,
-  HTTP_525_SSL_HANDSHAKE_FAILED            = 525,
-  HTTP_526_INVALID_SSL_CERTIFICATE         = 526
+   **************/
+  HTTP_400_BAD_REQUEST                      = 400,
+  HTTP_401_UNAUTHORIZED                     = 401,
+  HTTP_402_PAYMENT_REQUIRED                 = 402,
+  HTTP_403_FORBIDDEN                        = 403,
+  HTTP_404_NOT_FOUND                        = 404,
+  HTTP_405_METHOD_NOT_ALLOWED               = 405,
+  HTTP_406_NOT_ACCEPTABLE                   = 406,
+  HTTP_407_PROXY_AUTHENTICATION_REQUIRED    = 407,
+  HTTP_408_REQUIEST_TIMEOUT                 = 408,
+  HTTP_409_CONFLICT                         = 409,
+  HTTP_410_GONE                             = 410,
+  HTTP_411_LENGTH_REQUIRED                  = 411,
+  HTTP_412_PRECONDITION_FAILED              = 412,
+  HTTP_413_PAYLOAD_TOO_LARGE                = 413,
+  HTTP_414_URI_TOO_LONG                     = 414,
+  HTTP_415_UNSUPPORTED_MEDIA_TYPE           = 415,
+  HTTP_416_RANGE_NOT_SATISFIABLE            = 416,
+  HTTP_417_EXPECTATION_FAILED               = 417,
+  HTTP_421_MISDIRECTED_REQUEST              = 421,
+  HTTP_422_UNPROCESSABLE_ENTITY             = 422,
+  HTTP_423_LOCKED                           = 423,
+  HTTP_424_FAILED_DEPENDENCY                = 424,
+  HTTP_426_UPGRADE_REQUIRED                 = 426,
+  HTTP_428_PRECONDITION_REQUIRED            = 428,
+  HTTP_429_TOO_MANY_REQUESTS                = 429,
+  HTTP_431_REQUEST_HEADER_FIELDS_TOO_LARGE  = 431,
+  HTTP_444_CLOSED_WITHOUT_HEADERS           = 444,
+  HTTP_449_RETRY_WITH                       = 429,
+  HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS    = 451,
+  /**************
+    Server error
+   **************/
+  HTTP_500_INTERNAL_SERVER_ERROR            = 500,
+  HTTP_501_NOT_IMPLEMENTED                  = 501,
+  HTTP_502_BAD_GATEWAY                      = 502,
+  HTTP_503_SERVICE_UNAVAILABLE              = 503,
+  HTTP_504_GATEWAY_TIMEOUT                  = 504,
+  HTTP_505_HTTP_VERSION_NOT_SUPPORTED       = 505,
+  HTTP_506_VARIANT_ALSO_NEGOTIATES          = 506,
+  HTTP_507_INSUFFICIENT_STORAGE             = 507,
+  HTTP_508_LOOP_DETECTED                    = 508,
+  HTTP_509_BANDWITH_LIMIT_EXCEEDED          = 509,
+  HTTP_510_NOT_EXTENDED                     = 510,
+  HTTP_511_NETWORK_AUTHENTICATION_REQUIRED  = 511,
+  HTTP_520_UNKNOWN_ERROR                    = 520,
+  HTTP_521_WEB_SERVER_IS_DOWN               = 521,
+  HTTP_522_CONNECTION_TIMED_OUT             = 522,
+  HTTP_523_ORIGIN_IS_UNREACHABLE            = 523,
+  HTTP_524_A_TIMEOUT_OCCURRED               = 524,
+  HTTP_525_SSL_HANDSHAKE_FAILED             = 525,
+  HTTP_526_INVALID_SSL_CERTIFICATE          = 526
 };
 class Cookie
 {
@@ -810,6 +839,7 @@ class HTTPConnection
         _cookies_in.insert(std::pair<string, string>("sessionId", sid.value()));
       }
       _status = HTTP_200_OK;
+      _client.flush();
     }
 };
 class HTTPServlet
@@ -831,29 +861,41 @@ class HTTPServer
   private:
     WiFiServer _server;
     WiFiClient _current;
-    bool _begin;
+    bool _begin_reason, _ready;
     long _change;
-    int _mode;
+    int _port, _mode;
     std::map<string, HTTPServlet*> _servlets;
   public:
+    const bool ready()
+    {
+      return _ready;
+    }
     void begin()
     {
-      if (_begin) return;
+      if (_begin_reason) return;
+      _begin_reason = true;
+      Formatter fmt;
+      fmt.add(_port);
+      Serial.print(fmt.format("[HTTP] Starting server on [0] port... "));
       _server.begin();
-      _begin = true;
-      Serial.println("[HTTP] server started");
+      _ready = _server.status() == LISTEN;
+      if (!_ready) {
+        Serial.println("failed: port already busy");
+        return;
+      }
+      Serial.println("ok");
     }
     void end()
     {
-      if (!_begin) return;
-      _begin = false;
+      if (!_begin_reason) return;
       if (_current.connected())
       {
         _current.flush();
         _current.stop();
-        _current = WiFiClient();
       }
       _server.stop();
+      _begin_reason = false;
+      _ready = false;
     }
     const bool check(const string& _path)
     {
@@ -861,18 +903,18 @@ class HTTPServer
       std::map<string, HTTPServlet*>::iterator it = _servlets.find(_path);
       return (*it).first == _path;
     }
-    bool install(const string& _path, HTTPServlet* _servlet)
+    const bool install(const string& _path, HTTPServlet* _servlet)
     {
-      if (check(_path)) return false;
+      if (_ready || check(_path)) return false;
       _servlets.insert(std::pair<string, HTTPServlet*>(_path, _servlet));
       Formatter fmt;
       fmt.add(_path);
       Serial.println(fmt.format("[HTTP] Installed servlet on path '[0]'"));
       return true;
     }
-    bool uninstall(const string& _path)
+    const bool uninstall(const string& _path)
     {
-      if (!check(_path)) return false;
+      if (_ready || !check(_path)) return false;
       _servlets.erase(_path);
       Formatter fmt;
       fmt.add(_path);
@@ -881,7 +923,7 @@ class HTTPServer
     }
     void waitFor()
     {
-      if (!_begin) return;
+      if (!_ready) return;
       if (_mode == 0)
       {
         _current = _server.available();
@@ -940,10 +982,11 @@ class HTTPServer
       }
       if (_yield) yield();
     }
-    HTTPServer(const int& port = 80): _server(port)
+    HTTPServer(const int& _port): _server(_port)
     {
-      _begin = false;
+      this->_port = _port;
       _mode = 0;
+      _begin_reason = false;
     }
 };
 /**************************************************************************************
@@ -951,14 +994,25 @@ class HTTPServer
  **********/
 enum PinMode
 {
-  MODE_INPUT, MODE_OUTPUT, MODE_ANY
+  MODE_INPUT,
+  MODE_OUTPUT,
+  MODE_ANY
 };
 enum PinType
 {
-  ANALOG, COMMAND, DIGITAL, DIGITAL_VIRTUAL, VIRTUAL, UNKNOWN
+  ANALOG,
+  COMMAND,
+  DIGITAL,
+  DIGITAL_VIRTUAL,
+  VIRTUAL,
+  UNKNOWN
 };
 enum BoardType
 {
+  ATOM_1,
+  MICRO_2,
+  MINI_3,
+  NANO_4,
   NODEMCU_ESP_12E
 };
 class Pin
@@ -1018,22 +1072,22 @@ enum ErrorId
   ERROR_UNKNOWN_CMD
 };
 
-static const string VIRTUINO_PATH          = "/virtuino";
+static const string VIRTUINO_PATH             = "/virtuino";
+static const int    COMMAND_PIN_CNT           = 1,
+                    VIRTUAL_PIN_CNT           = 32;
+static const char   CMD_START_CHAR            = '!',
+                    CMD_END_CHAR              = '$',
+                    CMD_REQ_CHAR              = '?',
+                    PIN_COMMAND_CHAR          = 'C',
+                    PIN_ANALOG_CHAR           = 'A',
+                    PIN_DIGITAL_CHAR          = 'O',
+                    PIN_DIGITAL_VIRTUAL_CHAR  = 'D',
+                    PIN_VIRTUAL_CHAR          = 'V',
+                    PIN_PWM_CHAR              = 'Q';
 
 class VirtuinoBoard: public HTTPServlet
 {
   private:
-    static const int COMMAND_PIN_CNT = 1,
-                     VIRTUAL_PIN_CNT = 32;
-    static const char CMD_START_CHAR = '!',
-                      CMD_END_CHAR = '$',
-                      CMD_REQ_CHAR = '?',
-                      PIN_COMMAND_CHAR = 'C',
-                      PIN_ANALOG_CHAR = 'A',
-                      PIN_DIGITAL_CHAR = 'O',
-                      PIN_DIGITAL_VIRTUAL_CHAR = 'D',
-                      PIN_VIRTUAL_CHAR = 'V',
-                      PIN_PWM_CHAR = 'Q';
     static std::vector<Pin> _pins;
     static int _cmd_idx, _a_idx, _d_idx, _dv_idx, _v_idx;
     static string _pass;
@@ -1052,7 +1106,7 @@ class VirtuinoBoard: public HTTPServlet
     }
     virtual void service(HTTPConnection& con)
     {
-      if(!_begin)
+      if (!_begin)
       {
         sendError(ERROR_NO_BOARD, con);
         return;
@@ -1270,9 +1324,9 @@ class VirtuinoBoard: public HTTPServlet
     {
       return _pins.size();
     }
-    /*******************************************
+    /*********
       PinType
-     *******************************************/
+     *********/
     static const PinType pinType(const int& _pinId)
     {
       return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].type() : UNKNOWN;
@@ -1301,9 +1355,9 @@ class VirtuinoBoard: public HTTPServlet
     {
       return isDigital(_pinId) && _pins[_pinId].pwm();
     }
-    /*******************************************
+    /*********
       PinMode
-     *******************************************/
+     *********/
     static const PinMode pinMode(const int& _pinId)
     {
       return _begin && _pinId >= 0 && _pinId < _pins.size() ? _pins[_pinId].mode() : MODE_ANY;
@@ -1366,9 +1420,9 @@ class VirtuinoBoard: public HTTPServlet
           break;
       }
     }
-    /*******************************************
+    /*******
       PinId
-     *******************************************/
+     *******/
     static const int pinId(const PinType& _type, const int& _id)
     {
       switch (_type)
@@ -1413,9 +1467,9 @@ class VirtuinoBoard: public HTTPServlet
       }
       return -1;
     }
-    /*******************************************
+    /*********
       ReadPin
-     *******************************************/
+     *********/
     static const int readPin(const int& _pinId)
     {
       return _begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_OUTPUT ? _pins[_pinId].value() : -1;
@@ -1446,9 +1500,9 @@ class VirtuinoBoard: public HTTPServlet
       }
       return -1;
     }
-    /*******************************************
+    /**********
       WritePin
-     *******************************************/
+     **********/
     static const void writePin(const int& _pinId, const int& _value)
     {
       if (_begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_INPUT)
@@ -1479,10 +1533,10 @@ class VirtuinoBoard: public HTTPServlet
           break;
       }
     }
-    /*******************************************
+    /*********
       Control
-     *******************************************/
-    static void begin(const BoardType& _board, const string& _pass)
+     *********/
+    static void begin(const BoardType& _board, const string& _pass, const bool& _printMap)
     {
       if (!_begin && _pass.length() > 0)
       {
@@ -1490,6 +1544,25 @@ class VirtuinoBoard: public HTTPServlet
         std::vector<int> _pwm_idx;
         switch (_board)
         {
+          case ATOM_1:
+            _a_cnt = 0;
+            _d_cnt = 1;
+            break;
+          case MICRO_2:
+            _a_cnt = 1;
+            _d_cnt = 1;
+            break;
+          case MINI_3:
+            _a_cnt = 1;
+            _d_cnt = 2;
+            _pwm_idx.push_back(1);
+            break;
+          case NANO_4:
+            _a_cnt = 1;
+            _d_cnt = 3;
+            for (int i = 1; i < _d_cnt; i++)
+              _pwm_idx.push_back(i);
+            break;
           case NODEMCU_ESP_12E:
             _a_cnt = 1;
             _d_cnt = 11;
@@ -1520,7 +1593,12 @@ class VirtuinoBoard: public HTTPServlet
           _pins[_d_idx + i].pwm(true);
         _begin = true;
         Serial.println("[VIRTUINO] begin successfully");
+        if (_printMap) printBoardMap(Serial);
       }
+    }
+    static void begin(const BoardType& _board, const string& _pass)
+    {
+      begin(_board, _pass, false);
     }
     static void end()
     {
@@ -1530,28 +1608,320 @@ class VirtuinoBoard: public HTTPServlet
         _begin = false;
       }
     }
-    VirtuinoBoard() {}
+    /**********
+      BoardMap
+     **********/
+    static void printBoardMap(Print& _print)
+    {
+      _print.println("------- VIRTUINO BOARD MAP -------\n  PWM | PIN_ID | TYPE_ID | DESCRIPTION");
+      if (!_begin) return;
+      Formatter fmt;
+      for (int i = 0; i < _pins.size(); i++)
+      {
+        fmt.reset();
+        fmt.add(isPWM(i) ? '~' : ' ');
+        fmt.add(i < 10 ? Utils::int2str(0) : "");
+        fmt.add(Utils::int2str(i));
+        int id = pinTypeId(i);
+        switch (pinType(i))
+        {
+          case COMMAND:
+            fmt.add(PIN_COMMAND_CHAR);
+            break;
+          case ANALOG:
+            fmt.add(PIN_ANALOG_CHAR);
+            break;
+          case DIGITAL:
+            fmt.add(isPWM(i) ? PIN_PWM_CHAR : PIN_DIGITAL_CHAR);
+            break;
+          case DIGITAL_VIRTUAL:
+            fmt.add(PIN_DIGITAL_VIRTUAL_CHAR);
+            break;
+          case VIRTUAL:
+            fmt.add(PIN_VIRTUAL_CHAR);
+            break;
+        }
+        fmt.add(id < 10 ? Utils::int2str(0) : "");
+        fmt.add(Utils::int2str(id));
+        switch (pinType(i))
+        {
+          case COMMAND:
+            fmt.add("COMMAND");
+            break;
+          case ANALOG:
+            fmt.add("ANALOG");
+            break;
+          case DIGITAL:
+            fmt.add(isPWM(i) ? "DIGITAL (PWM)" : "DIGITAL");
+            break;
+          case DIGITAL_VIRTUAL:
+            fmt.add("DIGITAL VIRTUAL");
+            break;
+          case VIRTUAL:
+            fmt.add("VIRTUAL");
+            break;
+        }
+        //                            PWM | PIN_ID | TYPE_ID | DESCRIPTION
+        //                             ~     [00]      C00     COMMAND
+        _print.println(fmt.format("   [0]     [[1][2]]      [3][4][5]     [6]"));
+      }
+    }
 };
-std::vector<Pin> VirtuinoBoard::_pins;
-bool VirtuinoBoard::_begin = false;
-int VirtuinoBoard::_cmd_idx, VirtuinoBoard::_a_idx, VirtuinoBoard::_d_idx, VirtuinoBoard::_dv_idx, VirtuinoBoard::_v_idx;
-string VirtuinoBoard::_pass;
+std::vector<Pin>  VirtuinoBoard::_pins;
+bool              VirtuinoBoard::_begin = false;
+int               VirtuinoBoard::_cmd_idx,
+                  VirtuinoBoard::_a_idx,
+                  VirtuinoBoard::_d_idx,
+                  VirtuinoBoard::_dv_idx,
+                  VirtuinoBoard::_v_idx;
+string            VirtuinoBoard::_pass;
 /**************************************************************************************
-  Sketch
- ********/
-static const string wlan_ap_ssid           = "ESP8266",
-                    wlan_ap_pass           = "changeme",
-                    wlan_sta_ssid          = "<sta_ssid>",
-                    wlan_sta_pass          = "<sta_pass>",
-                    virtuino_pass          = "1234";
-static const bool   wlan_ap_secure         = true,
-                    wlan_sta_secure        = true,
-                    wlan_sta_reconnect     = true;
-
-static const int    wlan_mode              = 0,
-                    wlan_sta_reconnect_cnt = 2;
-
-static const byte   http_favicon_ico[]     = {
+  WiFiManager
+ *************/
+static const string WIFI_DEFAULT_AP_SSID            = "ESP8266";
+static const bool   WIFI_DEFAULT_STA_RECONNECT      = true,
+                    WIFI_DEFAULT_AP_APPEND_MAC      = true;
+static const int    WIFI_DEFAULT_STA_RECONNECT_CNT  = 2;
+class WiFiManager
+{
+  private:
+    static WiFiMode_t _mode;
+    static int _sta_reconnect_cnt;
+    static string _ssid, _pass;
+    static bool _ap_append_mac, _secure, _sta_reconnect, _connect_reason;
+    /*********
+      Control
+     *********/
+    static void begin()
+    {
+      if (_connect_reason) return;
+      Formatter fmt;
+      int _cnt = 0, _cnt_reconnect = 0, _info_print_delay = 1000;
+      bool _echo = false, _wait = true;
+      string f_ssid = _ssid;
+      if (_ap_append_mac && _mode == WIFI_AP)
+      {
+        f_ssid += "_";
+        f_ssid += string(WiFi.macAddress()[2], HEX);
+        f_ssid += string(WiFi.macAddress()[3], HEX);
+      }
+      while (WiFi.status() != WL_CONNECTED)
+      {
+        if (!_echo)
+        {
+          fmt.reset();
+          fmt.add(_mode == WIFI_STA ? "STA" : "AP");
+          fmt.add(f_ssid);
+          fmt.add(_cnt_reconnect + 1);
+          Serial.print(fmt.format("[WiFiManager] Starting WIFI on '[0]' mode ('[1]') #[2] "));
+          WiFi.mode(_mode);
+          switch (_mode)
+          {
+            case WIFI_STA:
+              if (_secure)
+                WiFi.begin(f_ssid.c_str(), _pass.c_str());
+              else
+                WiFi.begin(f_ssid.c_str());
+              break;
+            case WIFI_AP:
+              if (_secure)
+                WiFi.softAP(f_ssid.c_str(), _pass.c_str());
+              else
+                WiFi.softAP(f_ssid.c_str());
+              break;
+          }
+          _echo = true;
+        }
+        switch (WiFi.status())
+        {
+          case WL_NO_SSID_AVAIL:
+            Serial.println(" failed: no ssid available");
+            _wait = false;
+            break;
+          case WL_CONNECT_FAILED:
+            Serial.println(" failed: connection failed");
+            _wait = false;
+            break;
+          case WL_CONNECTION_LOST:
+            Serial.println(" failed: connection lost");
+            _wait = false;
+            break;
+          case WL_NO_SHIELD:
+            Serial.println(" failed: shield not found");
+            _wait = false;
+            break;
+          case WL_DISCONNECTED:
+          case WL_IDLE_STATUS:
+            if (_mode == WIFI_AP && _cnt == 5) _wait = false;
+            break;
+        }
+        if (!_wait)
+        {
+          if (_mode == WIFI_STA)
+          {
+            if (_cnt_reconnect == _sta_reconnect_cnt)
+            {
+              if (_sta_reconnect)
+              {
+                Serial.println("[WiFiManager] WIFI will be restarted after 5 seconds on AP mode.");
+                _mode = WIFI_AP;
+                _cnt = 0;
+                _cnt_reconnect = 0;
+                _echo = false;
+                _wait = true;
+                WiFi.disconnect();
+                delay(5000);
+                continue;
+              }
+              return;
+            }
+            Serial.println("[WiFiManager] Connecting to WIFI will be restarting after 2 seconds.");
+            _cnt = 0;
+            _echo = false;
+            _wait = true;
+            _cnt_reconnect++;
+            WiFi.disconnect();
+            delay(2000);
+            continue;
+          }
+          break;
+        }
+        _cnt++;
+        Serial.print(".");
+        delay(1000);
+      }
+      fmt.reset();
+      if (_wait || _mode == WIFI_AP)
+      {
+        fmt.add(_mode == WIFI_STA ? WiFi.localIP()[0] : WiFi.softAPIP()[0]);
+        fmt.add(_mode == WIFI_STA ? WiFi.localIP()[1] : WiFi.softAPIP()[1]);
+        fmt.add(_mode == WIFI_STA ? WiFi.localIP()[2] : WiFi.softAPIP()[2]);
+        fmt.add(_mode == WIFI_STA ? WiFi.localIP()[3] : WiFi.softAPIP()[3]);
+        Serial.println(fmt.format(" ok ([0].[1].[2].[3])"));
+      }
+      _connect_reason = true;
+    }
+    WiFiManager() {}
+  public:
+    /*********
+      Control
+     *********/
+    static const bool ready()
+    {
+      switch (_mode)
+      {
+        case WIFI_AP:
+          return _connect_reason && (WiFi.status() == WL_DISCONNECTED || WiFi.status() == WL_IDLE_STATUS);
+        case WIFI_STA:
+          return _connect_reason && WiFi.status() == WL_CONNECTED;
+      }
+      return false;
+    }
+    static void end()
+    {
+      if (!_connect_reason) return;
+      WiFi.disconnect();
+      delay(2000);
+      _connect_reason = false;
+    }
+    /************************************************
+      AP mode with default SSID and without password
+     ************************************************/
+    static void beginAP()
+    {
+      if (_connect_reason) return;
+      _mode = WIFI_AP;
+      _ssid = WIFI_DEFAULT_AP_SSID;
+      _ap_append_mac = WIFI_DEFAULT_AP_APPEND_MAC;
+      begin();
+    }
+    /*********************
+      AP without password
+     *********************/
+    static void beginAP(const string& _ssid, const bool& _append_mac)
+    {
+      if (_connect_reason || _ssid.length() < 1) return;
+      _mode = WIFI_AP;
+      WiFiManager::_ssid = _ssid;
+      _ap_append_mac = _append_mac;
+      begin();
+    }
+    static void beginAP(const string& _ssid)
+    {
+      beginAP(_ssid, WIFI_DEFAULT_AP_APPEND_MAC);
+    }
+    /******************
+      AP with password
+     ******************/
+    static void beginAP(const string& _ssid, const string& _pass, const bool& _append_mac)
+    {
+      if (_connect_reason || _ssid.length() < 1 || _pass.length() < 8) return;
+      _mode = WIFI_AP;
+      WiFiManager::_ssid = _ssid;
+      WiFiManager::_pass = _pass;
+      _secure = true;
+      _ap_append_mac = _append_mac;
+      begin();
+    }
+    static void beginAP(const string& _ssid, const string& _pass)
+    {
+      beginAP(_ssid, _pass, WIFI_DEFAULT_AP_APPEND_MAC);
+    }
+    /***************************
+      STA mode without password
+     ***************************/
+    static void beginSTA(const string& _ssid, const bool& _reconnect, const int& _reconnect_cnt)
+    {
+      if (_connect_reason || _ssid.length() < 1) return;
+      _mode = WIFI_STA;
+      WiFiManager::_ssid = _ssid;
+      _sta_reconnect = _reconnect;
+      _sta_reconnect_cnt = _reconnect_cnt;
+      WiFiManager::_secure = false;
+      begin();
+    }
+    static void beginSTA(const string& _ssid, const bool& _reconnect)
+    {
+      beginSTA(_ssid, _reconnect, WIFI_DEFAULT_STA_RECONNECT_CNT);
+    }
+    static void beginSTA(const string& _ssid)
+    {
+      beginSTA(_ssid, WIFI_DEFAULT_STA_RECONNECT);
+    }
+    /************************
+      STA mode with password
+     ************************/
+    static void beginSTA(const string& _ssid, const string& _pass, const bool& _reconnect, const int& _reconnect_cnt)
+    {
+      if (_connect_reason || _ssid.length() < 1 || _pass.length() < 8) return;
+      _mode = WIFI_STA;
+      WiFiManager::_ssid = _ssid;
+      WiFiManager::_pass = _pass;
+      _sta_reconnect = _reconnect;
+      _sta_reconnect_cnt = _reconnect_cnt;
+      _secure = true;
+      begin();
+    }
+    static void beginSTA(const string& _ssid, const string& _pass, const bool& _reconnect)
+    {
+      beginSTA(_ssid, _pass, _reconnect, WIFI_DEFAULT_STA_RECONNECT_CNT);
+    }
+    static void beginSTA(const string& _ssid, const string& _pass)
+    {
+      beginSTA(_ssid, _pass, WIFI_DEFAULT_STA_RECONNECT);
+    }
+};
+WiFiMode_t  WiFiManager::_mode;
+string      WiFiManager::_ssid, WiFiManager::_pass;
+int         WiFiManager::_sta_reconnect_cnt;
+bool        WiFiManager::_connect_reason = false,
+            WiFiManager::_ap_append_mac,
+            WiFiManager::_secure,
+            WiFiManager::_sta_reconnect;
+/**************************************************************************************
+  FaviconICO
+ ************/
+static const char _http_favicon_ico[] = {
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
   0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x06, 0x00,
   0x00, 0x00, 0x1f, 0xf3, 0xff, 0x61, 0x00, 0x00, 0x00, 0x01, 0x73, 0x52, 0x47, 0x42, 0x00, 0xae,
@@ -1575,20 +1945,22 @@ static const byte   http_favicon_ico[]     = {
   0xa0, 0x3b, 0x83, 0xf7, 0x94, 0x72, 0x01, 0x54, 0x27, 0x92, 0xf1, 0x7a, 0xcd, 0x71, 0x0b, 0x00,
   0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
 };
-
 class FaviconICO: public HTTPServlet
 {
   private:
     virtual void service(HTTPConnection& con)
     {
+      int len = sizeof(_http_favicon_ico);
       con.contentType("image/png");
-      con.contentLength(sizeof(http_favicon_ico));
-      for (int i = 0; i < sizeof(http_favicon_ico); i++)
-        con.write(http_favicon_ico[i]);
+      con.contentLength(len);
+      for (int i = 0; i < len; i++)
+        con.write(_http_favicon_ico[i]);
       con.close();
     }
 };
-
+/**************************************************************************************
+  Sketch
+ ********/
 class PageRootIndex: public HTTPServlet
 {
   private:
@@ -1605,162 +1977,83 @@ class PageRootIndex: public HTTPServlet
     }
 };
 
-HTTPServer server(80);
-PageRootIndex page_root_index;
-FaviconICO favicon_ico;
-VirtuinoBoard virtuino;
+static const string         _wlan_ssid      = "<ssid>",
+                            _wlan_pass      = "<pass>",
+                            _virtuino_pass  = "1234";
+static const int            _http_port      = 80;
+static const BoardType      _virtuino_board = NODEMCU_ESP_12E;
+static FaviconICO           _favicon_ico;
+static PageRootIndex        _page_root_index;
+static VirtuinoBoard        _virtuino;
+
+static HTTPServer _server(_http_port);
 
 void setup() {
   delay(1000);
   Serial.begin(115200);
   NanoFS::mount();
-  Formatter fmt;
-  int _cnt = 0, _cnt_reconnect = 0, _mode = wlan_mode;
-  bool _echo = false, _wait = true;
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    if (!_echo)
-    {
-      fmt.reset();
-      fmt.add(_mode == 0 ? "STA" : "AP");
-      fmt.add(_mode == 0 ? wlan_sta_ssid : wlan_ap_ssid);
-      fmt.add(_cnt_reconnect + 1);
-      Serial.print(fmt.format("[WLAN] Starting WIFI on '[0]' mode ('[1]') #[2] "));
-      WiFi.mode(_mode == 0 ? WIFI_STA : WIFI_AP);
-      switch (_mode)
-      {
-        case 0:
-          if (wlan_sta_secure)
-            WiFi.begin(wlan_sta_ssid.c_str(), wlan_sta_pass.c_str());
-          else
-            WiFi.begin(wlan_sta_ssid.c_str());
-          break;
-        case 1:
-          if (wlan_ap_secure)
-            WiFi.softAP(wlan_ap_ssid.c_str(), wlan_ap_pass.c_str());
-          else
-            WiFi.softAP(wlan_ap_ssid.c_str());
-          break;
-      }
-      _echo = true;
-    }
-    switch (WiFi.status())
-    {
-      case WL_NO_SSID_AVAIL:
-        Serial.println(" failed: no ssid available");
-        _wait = false;
-        break;
-      case WL_CONNECT_FAILED:
-        Serial.println(" failed: connection failed");
-        _wait = false;
-        break;
-      case WL_CONNECTION_LOST:
-        Serial.println(" failed: connection lost");
-        _wait = false;
-        break;
-      case WL_NO_SHIELD:
-        Serial.println(" failed: shield not found");
-        _wait = false;
-        break;
-      case WL_DISCONNECTED:
-      case WL_IDLE_STATUS:
-        if (_mode == 1 && _cnt == 5) _wait = false;
-        break;
-    }
-    if (!_wait)
-    {
-      if (_mode == 0)
-      {
-        if (_cnt_reconnect == wlan_sta_reconnect_cnt)
-        {
-          if (wlan_sta_reconnect)
-          {
-            Serial.println("[WLAN] WIFI will be restarted after 5 seconds on AP mode.");
-            _mode = 1;
-            _cnt = 0;
-            _cnt_reconnect = 0;
-            _echo = false;
-            _wait = true;
-            WiFi.disconnect();
-            delay(5000);
-            continue;
-          }
-          return;
-        }
-        Serial.println("[WLAN] Connecting to WIFI will be restarting after 2 seconds.");
-        _cnt = 0;
-        _echo = false;
-        _wait = true;
-        _cnt_reconnect++;
-        WiFi.disconnect();
-        delay(2000);
-        continue;
-      }
-      break;
-    }
-    _cnt++;
-    Serial.print(".");
-    delay(1000);
-  }
-  fmt.reset();
-  if (_wait || (!_wait && _mode == 1))
-  {
-    fmt.add(_mode == 0 ? WiFi.localIP()[0] : WiFi.softAPIP()[0]);
-    fmt.add(_mode == 0 ? WiFi.localIP()[1] : WiFi.softAPIP()[1]);
-    fmt.add(_mode == 0 ? WiFi.localIP()[2] : WiFi.softAPIP()[2]);
-    fmt.add(_mode == 0 ? WiFi.localIP()[3] : WiFi.softAPIP()[3]);
-    Serial.println(fmt.format(" ok ([0].[1].[2].[3])"));
-
-    server.install("/favicon.ico", &favicon_ico);
-    server.install("/", &page_root_index);
-    server.install("/index.html", &page_root_index);
-    /**********************************************
+  //WiFiManager::beginAP();
+  //WiFiManager::beginAP(_wlan_ssid,_wlan_pass,false);
+  WiFiManager::beginSTA(_wlan_ssid, _wlan_pass);
+  if (WiFiManager::ready()) {
+    WiFi.printDiag(Serial);
+    _server.install("/favicon.ico", &_favicon_ico);
+    _server.install("/", &_page_root_index);
+    _server.install("/index.html", &_page_root_index);
+    /**********
       Virtuino
-     **********************************************/
-    //1. Begin use board
-    VirtuinoBoard::begin(NODEMCU_ESP_12E, virtuino_pass);
-    //2.1 Set V00 mode as OUTPUT
+     **********/
+    //! 1. Begin using board
+    VirtuinoBoard::begin(_virtuino_board, _virtuino_pass, true);
+    //! 2.1 Set V00 mode as OUTPUT
     VirtuinoBoard::pinMode(VIRTUAL, 0, MODE_OUTPUT);
-    //2.2 Set V01 mode as OUTPUT
+    //! 2.2 Set V01 mode as OUTPUT
     VirtuinoBoard::pinMode(VIRTUAL, 1, MODE_OUTPUT);
-    //2.3 Set V02 mode as INPUT
+    //! 2.3 Set V02 mode as INPUT
     VirtuinoBoard::pinMode(VIRTUAL, 2, MODE_INPUT);
-    //3. Install virtuino class as servlet
-    server.install(VIRTUINO_PATH, &virtuino);
-
-    server.begin();
+    //! 3. Install virtuino class as servlet
+    _server.install(VIRTUINO_PATH, &_virtuino);
+    _server.begin();
   }
 }
 
-long rnd_next_update = millis(), rnd_delay = 5000,  //! 5 sec
-     led_next_update = millis(), led_delay = 10000, //! 10 sec
-     btn_next_update = millis(), btn_delay = 500;   //! 0.5 sec
-bool blink = false, enable = false;
+static long _rnd_next_update                    = millis(),
+            _rnd_delay                          = 5000,     //! 5 sec
+            _led_next_update                    = millis(),
+            _led_delay                          = 10000,    //! 10 sec
+            _btn_next_update                    = millis(),
+            _btn_delay                          = 500;      //! 0.5 sec
+static bool _blink                              = false,
+            _enable                             = false;
+
 void loop() {
-  server.waitFor();
-  /**********************************************
-    Virtuino Random Example, CMD: !V00=?$
-   **********************************************/
-  if (millis() >= rnd_next_update)
+  _server.waitFor();
+  bool change_reason = false;
+  /*******************************************
+    Virtuino Button Checker, CMD: !V02=<0|1>$
+   *******************************************/
+  if (millis() >= _btn_next_update)
   {
-    rnd_next_update += rnd_delay;
-    VirtuinoBoard::writePin(VIRTUAL, 0 , enable ? rand() % 255 : 0); //! 0...255
+    _btn_next_update += _btn_delay;
+    bool last_enable = _enable;
+    _enable = VirtuinoBoard::readPin(VIRTUAL, 2) == 1;
+    change_reason = last_enable != _enable;
+  }
+  /***************************************
+    Virtuino Random Example, CMD: !V00=?$
+   ***************************************/
+  if (millis() >= _rnd_next_update || change_reason)
+  {
+    _rnd_next_update += _rnd_delay;
+    VirtuinoBoard::writePin(VIRTUAL, 0 , _enable ? rand() % 255 : 0); //! 0...255
   }
   /************************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
    ************************************************/
-  if (millis() >= led_next_update)
+  if (millis() >= _led_next_update || change_reason)
   {
-    led_next_update += led_delay;
-    blink = enable ? !blink : false;
-    VirtuinoBoard::writePin(VIRTUAL, 1 , blink); //! 0-OFF, 1-ON
-  }
-  /*******************************************
-    Virtuino Button Checker, CMD: !V02=<0|1>$
-   *******************************************/
-  if (millis() >= btn_next_update)
-  {
-    btn_next_update += btn_delay;
-    enable = VirtuinoBoard::readPin(VIRTUAL, 2) == 1;
+    _led_next_update += _led_delay;
+    _blink = _enable ? !_blink : false;
+    VirtuinoBoard::writePin(VIRTUAL, 1 , _blink); //! 0-OFF, 1-ON
   }
 }
