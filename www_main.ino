@@ -3,13 +3,15 @@
   Arduino ESP8266 WWW Main
  **************************************************************************************/
 #include <ESP8266WiFi.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include <map>
 #include <vector>
 #define string String
 #include <FS.h>
-static const double VERSION_MAIN    = 7.10,
-                    VERSION_CODE    = 8.43,
-                    VERSION_EXTRA   = 180320;
+static const double VERSION_MAIN    = 7.20,
+                    VERSION_CODE    = 8.61,
+                    VERSION_EXTRA   = 180321;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
 {
@@ -44,6 +46,31 @@ class Utils
     static const int indexOf(const string& _s, const char& _c)
     {
       return indexOf(_s, 0, _c);
+    }
+    static const int indexOf(const string& _source, const int& _start, const string& _search)
+    {
+      bool detect = false;
+      for (int i = _start; i < _source.length(); i++)
+      {
+        if (_source[i] == _search[0])
+        {
+          for (int j = 1; j < _search.length(); j++)
+          {
+            if (i + j == _source.length() || _source[i + j] != _search[j])
+            {
+              detect = false;
+              break;
+            }
+            detect = true;
+          }
+          if (detect) return i;
+        }
+      }
+      return -1;
+    }
+    static const int indexOf(const string& _source, const string& _search)
+    {
+      return indexOf(_source, 0, _search);
     }
     static const string substring(const string& _s, const int& _start, const int& _end)
     {
@@ -511,7 +538,7 @@ class HTTPConnection
     std::map<string, string> _headers_in, _headers_out, _cookies_in;
     std::map<string, KeyPair> _params;
     std::map<string, Cookie> _cookies_out;
-    bool _sendHeaders;
+    bool _sendHeaders, _hasBoundary;
     const bool readPairs(const string& _pairs, const PairType& _type)
     {
       std::vector<string> _pair = Utils::split(_pairs, _type == QUERY ? '&' : ';');
@@ -676,6 +703,18 @@ class HTTPConnection
     {
       return _client.remoteIP();
     }
+    const bool hasBoundary()
+    {
+      return _hasBoundary;
+    }
+    const int available()
+    {
+      return _client.available();
+    }
+    const char read()
+    {
+      return _client.available() > 0 ? _client.read() : -1;
+    }
     void write(const byte& _c)
     {
       if (_client.connected())
@@ -809,7 +848,7 @@ class HTTPConnection
         _headers_in.insert(std::pair<string, string>(k, v));
       }
       _client.read();
-      if (_method == HTTP_POST)
+      if (_method == HTTP_POST && Utils::indexOf(header("Content-Type"), "boundary") < 0) //Enable only urlencoded/form-data
       {
         int len = Utils::str2int(header("Content-Length"));
         if (len > 0)
@@ -1570,8 +1609,7 @@ class VirtuinoBoard: public HTTPServlet
           case NODEMCU_ESP_12E:
             _a_cnt = 1;
             _d_cnt = 11;
-            for (int i = 0; i < _d_cnt; i++) //ENABLE PWM ON ALL DIGITAL PINS
-              _pwm_idx.push_back(i);
+            _pwm_idx.push_back(5);
             break;
           default:
             Serial.println("[VIRTUINO] begin failed: unknown board type!");
@@ -1594,7 +1632,7 @@ class VirtuinoBoard: public HTTPServlet
         for (int i = 0; i < VIRTUAL_PIN_CNT; i++)
           _pins.push_back(Pin(VIRTUAL, false, MODE_ANY));
         for (int i = 0; i < _pwm_idx.size(); i++)
-          _pins[_d_idx + i].pwm(true);
+          _pins[_d_idx + _pwm_idx[i]].pwm(true);
         _begin = true;
         Serial.println("[VIRTUINO] begin successfully");
       }
@@ -1924,49 +1962,9 @@ WiFiMode_t  WiFiManager::_mode;
 string      WiFiManager::_ssid, WiFiManager::_pass;
 int         WiFiManager::_sta_reconnect_cnt;
 bool        WiFiManager::_connect_reason = false,
-            WiFiManager::_ap_append_mac,
-            WiFiManager::_secure,
-            WiFiManager::_sta_reconnect;
-/**************************************************************************************
-  FaviconICO
- ************/
-static const char _http_favicon_ico[] = {
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
-  0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x06, 0x00,
-  0x00, 0x00, 0x1f, 0xf3, 0xff, 0x61, 0x00, 0x00, 0x00, 0x01, 0x73, 0x52, 0x47, 0x42, 0x00, 0xae,
-  0xce, 0x1c, /********************************/  0xe9, 0x00, 0x00, 0x00, 0x04, 0x67, 0x41, 0x4d,
-  0x41, 0x00, /*########***########***########*/  0x00, 0xb1, 0x8f, 0x0b, 0xfc, 0x61, 0x05, 0x00,
-  0x00, 0x00, /*##*********##*********##****##*/  0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0e,
-  0xc2, 0x00, /*######*****########***########*/  0x00, 0x0e, 0xc2, 0x01, 0x15, 0x28, 0x4a, 0x80,
-  0x00, 0x00, /*##***************##***##*******/  0x00, 0x91, 0x49, 0x44, 0x41, 0x54, 0x38, 0x4f,
-  0xa5, 0x92, /*########################*******/  0x0b, 0x0e, 0x80, 0x20, 0x0c, 0x43, 0x99, 0xf7,
-  0xbf, 0xb3, /********************************/  0xd2, 0x49, 0x97, 0x32, 0x3e, 0xf1, 0xf3, 0x12,
-  0xe2, 0xda, /******######********######******/  0x61, 0x11, 0xd0, 0xce, 0x4a, 0xf9, 0x81, 0x07,
-  0x98, 0x59, /****##******##****##******##****/  0x93, 0x37, 0xc8, 0x7c, 0xea, 0x1d, 0xad, 0x76,
-  0xc1, 0x41, /**##**********##******##****##**/  0x76, 0x1e, 0x89, 0x00, 0xa4, 0xe7, 0x15, 0xe8,
-  0xa9, 0x3f, /**##**######**####**######**##**/  0xe8, 0x9a, 0xe6, 0x5b, 0xd0, 0xd4, 0x0c, 0xfb,
-  0xb3, 0x79, /**##************##****##****##**/  0xd3, 0x33, 0xd8, 0x31, 0x0d, 0x68, 0xf5, 0x27,
-  0xba, 0x00, /****##******##****##******##****/  0xfd, 0x92, 0x61, 0xa5, 0x45, 0x2f, 0x02, 0xf2,
-  0xfe, 0x54, /******######********######******/  0xef, 0x7a, 0x7e, 0x0b, 0x79, 0x02, 0x80, 0x86,
-  0xcf, 0x1a, /********************************/  0xa8, 0x66, 0x1d, 0xd7, 0x08, 0x60, 0x72, 0x10,
-  0xd6, 0xf9, 0x49, 0xba, 0x00, 0x24, 0x73, 0x50, 0x93, 0x99, 0x07, 0x3c, 0x00, 0x66, 0x4e, 0xa6,
-  0xd6, 0x1e, 0x5f, 0x86, 0x8e, 0xba, 0x16, 0x11, 0xa9, 0x21, 0x62, 0x3b, 0xab, 0xde, 0xef, 0xff,
-  0xa0, 0x3b, 0x83, 0xf7, 0x94, 0x72, 0x01, 0x54, 0x27, 0x92, 0xf1, 0x7a, 0xcd, 0x71, 0x0b, 0x00,
-  0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
-};
-class FaviconICO: public HTTPServlet
-{
-  private:
-    virtual void service(HTTPConnection& con)
-    {
-      int len = sizeof(_http_favicon_ico);
-      con.contentType("image/png");
-      con.contentLength(len);
-      for (int i = 0; i < len; i++)
-        con.write(_http_favicon_ico[i]);
-      con.close();
-    }
-};
+                         WiFiManager::_ap_append_mac,
+                         WiFiManager::_secure,
+                         WiFiManager::_sta_reconnect;
 /**************************************************************************************
   Sketch
  ********/
@@ -1986,18 +1984,26 @@ class PageRootIndex: public HTTPServlet
     }
 };
 
-static const string         _wlan_ssid      = "<ssid>",
-                            _wlan_pass      = "<pass>",
-                            _virtuino_pass  = "1234";
-static const int            _http_port      = 80;
-static const BoardType      _virtuino_board = NODEMCU_ESP_12E;
-static FaviconICO           _favicon_ico;
+static const string         _wlan_ssid                    = "<ssid>",
+                            _wlan_pass                    = "<pass>",
+                            _virtuino_pass                = "1234";
+static const int            _http_port                    = 80,
+                            _onewire_pin                  = D0,
+                            _virtuino_sensors_start_d_pin = 0;
+static const BoardType      _virtuino_board               = NODEMCU_ESP_12E;
 static PageRootIndex        _page_root_index;
 static VirtuinoBoard        _virtuino;
 
 static HTTPServer _server(_http_port);
+static OneWire ow(_onewire_pin);
+static DallasTemperature _sensors(&ow);
+static std::vector<DeviceAddress*> _sensors_addr;
+static std::vector<float>          _sensors_last_t;
 
 void setup() {
+  /***********
+    Pre-Setup
+   ***********/
   delay(1000);
   Serial.begin(115200);
   //Serial.setDebugOutput(true);
@@ -2007,7 +2013,6 @@ void setup() {
   WiFiManager::beginSTA(_wlan_ssid, _wlan_pass);
   if (WiFiManager::ready()) {
     WiFi.printDiag(Serial);
-    _server.install("/favicon.ico", &_favicon_ico);
     _server.install("/", &_page_root_index);
     _server.install("/index.html", &_page_root_index);
     /**********
@@ -2025,8 +2030,61 @@ void setup() {
       VirtuinoBoard::pinMode(VIRTUAL, 2, MODE_INPUT);
       //! 3. Install virtuino class as servlet
       _server.install(VIRTUINO_PATH, &_virtuino);
-      VirtuinoBoard::printBoardMap(Serial);
     }
+    /*********
+      Sensors
+     *********/
+    _sensors.begin();
+    Formatter fmt;
+    _sensors.requestTemperatures();
+    int cnt = _sensors.getDeviceCount() + 1; //! Added virtual sensor (lasted pin)
+    fmt.add(cnt);
+    fmt.add(_sensors.isParasitePowerMode() ? "on" : "off");
+    Serial.println(fmt.format("[Sensors] Detected [0] device(s), parasite power is [1]"));
+    if (cnt > 0)
+    {
+      Serial.println("------- SENSORS MAP -------\n ID |      ADDRESS      | TEMP (C/F)");
+      for (int i = 0; i < cnt; i++)
+      {
+        if (VirtuinoBoard::ready()) {
+          VirtuinoBoard::pinMode(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, MODE_OUTPUT);
+        }
+        fmt.reset();
+        fmt.add(i < 10 ? "0" : "");
+        fmt.add(i);
+        DeviceAddress da;
+        bool detect = _sensors.getAddress(da, i);
+        if (!detect) {
+          fmt.add("??:??:??:??:??:??");
+          _sensors_addr.push_back(NULL);
+        }
+        else
+        {
+          string out;
+          for (int i = 0; i < 8; i++)
+          {
+            if (i != 0) out += ":";
+            if (da[i] < 16) out += "0";
+            out += string(da[i], HEX);
+          }
+          fmt.add(out);
+          _sensors_addr.push_back(&da);
+        }
+
+        float t = detect ? _sensors.getTempC(da) : -127 + (rand() % 256);
+        if (VirtuinoBoard::ready())
+          VirtuinoBoard::writePin(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, t);
+        _sensors_last_t.push_back(t);
+        fmt.add(t);
+        fmt.add(DallasTemperature::toFahrenheit(t));
+        Serial.println(fmt.format(" [0][1]   [2]   [3]/[4]"));
+      }
+    }
+    fmt.reset();
+    /************
+      Post-Setup
+     ************/
+    VirtuinoBoard::printBoardMap(Serial);
     _server.begin();
   }
 }
@@ -2036,7 +2094,9 @@ static long _rnd_next_update                    = millis(),
             _led_next_update                    = millis(),
             _led_delay                          = 10000,    //! 10 sec
             _btn_next_update                    = millis(),
-            _btn_delay                          = 500;      //! 0.5 sec
+            _btn_delay                          = 500,      //! 0.5 sec
+            _sensors_next_update                = millis(),
+            _sensors_delay                      = 1000;     //! 1 sec
 static bool _blink                              = false,
             _enable                             = false;
 
@@ -2069,5 +2129,25 @@ void loop() {
     _led_next_update += _led_delay;
     _blink = _enable ? !_blink : false;
     VirtuinoBoard::writePin(VIRTUAL, 1 , _blink); //! 0-OFF, 1-ON
+  }
+  /***************************************************************
+    Sensors Temperature Example , CMD: !D00...D<sensors_cnt-1>=?$
+   ***************************************************************/
+  if (VirtuinoBoard::ready() && (millis() >= _sensors_next_update || change_reason))
+  {
+    _sensors_next_update += _sensors_delay;
+    if (_enable) _sensors.requestTemperatures();
+    for (int i = 0; i < _sensors_addr.size(); i++)
+    {
+      if (_enable)
+      {
+        float _t = _sensors_addr[i] != NULL ? _sensors.getTempC(*(_sensors_addr[i])) : -127 + (rand() % 256),
+              _last = _sensors_last_t[i];
+        if (_t != _last) {
+          _sensors_last_t[i] = _t;
+        }
+      }
+      VirtuinoBoard::writePin(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, _enable ? _sensors_last_t[i] : 0);
+    }
   }
 }
