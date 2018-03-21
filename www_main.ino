@@ -10,7 +10,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN    = 7.20,
-                    VERSION_CODE    = 8.62,
+                    VERSION_CODE    = 8.63,
                     VERSION_EXTRA   = 180321;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1984,22 +1984,30 @@ class PageRootIndex: public HTTPServlet
     }
 };
 
-static const string         _wlan_ssid                    = "<ssid>",
-                            _wlan_pass                    = "<pass>",
-                            _virtuino_pass                = "1234";
-static const int            _http_port                    = 80,
-                            _onewire_pin                  = D0,
-                            _virtuino_sensors_start_d_pin = 0;
-static const BoardType      _virtuino_board               = NODEMCU_ESP_12E;
-static PageRootIndex        _page_root_index;
-static VirtuinoBoard        _virtuino;
-
+static const string                 _wlan_ssid                    = "<ssid>",
+                                    _wlan_pass                    = "<pass>",
+                                    _virtuino_pass                = "1234";
+static const int                    _http_port                    = 80,
+                                    _onewire_pin                  = D0,
+                                    _virtuino_sensors_start_d_pin = 0;
+static const BoardType              _virtuino_board               = NODEMCU_ESP_12E;
+static PageRootIndex                _page_root_index;
+static VirtuinoBoard                _virtuino;
 static HTTPServer _server(_http_port);
 static OneWire ow(_onewire_pin);
 static DallasTemperature _sensors(&ow);
-static std::vector<DeviceAddress*> _sensors_addr;
-static std::vector<float>          _sensors_last_t;
-
+static std::vector<DeviceAddress*>  _sensors_addr;
+static std::vector<float>           _sensors_last_t;
+static long                         _rnd_next_update              = millis(),
+                                    _rnd_delay                    = 5000,     //! 5 sec
+                                    _led_next_update              = millis(),
+                                    _led_delay                    = 10000,    //! 10 sec
+                                    _btn_next_update              = millis(),
+                                    _btn_delay                    = 500,      //! 0.5 sec
+                                    _sensors_next_update          = millis(),
+                                    _sensors_delay                = 1000;     //! 1 sec
+static bool                         _blink                        = false,
+                                    _enable                       = false;
 void setup() {
   /***********
     Pre-Setup
@@ -2088,18 +2096,6 @@ void setup() {
     _server.begin();
   }
 }
-
-static long _rnd_next_update                    = millis(),
-            _rnd_delay                          = 5000,     //! 5 sec
-            _led_next_update                    = millis(),
-            _led_delay                          = 10000,    //! 10 sec
-            _btn_next_update                    = millis(),
-            _btn_delay                          = 500,      //! 0.5 sec
-            _sensors_next_update                = millis(),
-            _sensors_delay                      = 1000;     //! 1 sec
-static bool _blink                              = false,
-            _enable                             = false;
-
 void loop() {
   _server.waitFor();
   bool change_reason = false;
