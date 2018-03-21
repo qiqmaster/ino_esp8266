@@ -10,7 +10,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN    = 7.20,
-                    VERSION_CODE    = 8.64,
+                    VERSION_CODE    = 8.65,
                     VERSION_EXTRA   = 180321;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -2068,11 +2068,13 @@ void setup() {
         else
         {
           string out;
-          for (int i = 0; i < 8; i++)
+          for (int i = 0; i < 8; i+=2)
           {
             if (i != 0) out += ":";
             if (da[i] < 16) out += "0";
             out += string(da[i], HEX);
+            if (da[i+1] < 16) out += "0";
+            out += string(da[i+1], HEX);
           }
           fmt.add(out);
           _sensors_addr.push_back(&da);
