@@ -10,7 +10,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN    = 7.20,
-                    VERSION_CODE    = 8.61,
+                    VERSION_CODE    = 8.62,
                     VERSION_EXTRA   = 180321;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1962,9 +1962,9 @@ WiFiMode_t  WiFiManager::_mode;
 string      WiFiManager::_ssid, WiFiManager::_pass;
 int         WiFiManager::_sta_reconnect_cnt;
 bool        WiFiManager::_connect_reason = false,
-                         WiFiManager::_ap_append_mac,
-                         WiFiManager::_secure,
-                         WiFiManager::_sta_reconnect;
+            WiFiManager::_ap_append_mac,
+            WiFiManager::_secure,
+            WiFiManager::_sta_reconnect;
 /**************************************************************************************
   Sketch
  ********/
@@ -2037,7 +2037,7 @@ void setup() {
     _sensors.begin();
     Formatter fmt;
     _sensors.requestTemperatures();
-    int cnt = _sensors.getDeviceCount() + 1; //! Added virtual sensor (lasted pin)
+    int cnt = _sensors.getDeviceCount() + 1; //Added virtual sensor (lasted pin)
     fmt.add(cnt);
     fmt.add(_sensors.isParasitePowerMode() ? "on" : "off");
     Serial.println(fmt.format("[Sensors] Detected [0] device(s), parasite power is [1]"));
