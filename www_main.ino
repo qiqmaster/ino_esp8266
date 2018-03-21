@@ -10,7 +10,7 @@
 #define string String
 #include <FS.h>
 static const double VERSION_MAIN    = 7.20,
-                    VERSION_CODE    = 8.63,
+                    VERSION_CODE    = 8.64,
                     VERSION_EXTRA   = 180321;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1983,7 +1983,6 @@ class PageRootIndex: public HTTPServlet
       con.send("text/html", fmt.format("<html><head><title>[0]</title></head><body><h1>[0]</h1></body></html>"));
     }
 };
-
 static const string                 _wlan_ssid                    = "<ssid>",
                                     _wlan_pass                    = "<pass>",
                                     _virtuino_pass                = "1234";
