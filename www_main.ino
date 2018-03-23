@@ -2247,8 +2247,8 @@ class PageRootIndex: public HTTPServlet
       con.send("text/html", fmt.format("<html><head><title>[0]</title></head><body><h1>[0]</h1></body></html>"));
     }
 };
-static const string   _wlan_ssid                    = "internet",
-                      _wlan_pass                    = "CAG3N3A4",
+static const string   _wlan_ssid                    = "<ssid>",
+                      _wlan_pass                    = "<pass>",
                       _virtuino_pass                = "1234";
 static const int      _http_port                    = 80,
                       _sensors_pin                  = D1,
