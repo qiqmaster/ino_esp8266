@@ -2,16 +2,20 @@
 /**************************************************************************************
   Arduino ESP8266 WWW Main
  **************************************************************************************/
+#ifdef ESP8266
+extern "C" {
+#include "user_interface.h"
+}
+#endif
 #include <ESP8266WiFi.h>
 #include <OneWire.h>
-#include <DallasTemperature.h>
 #include <map>
 #include <vector>
-#define string String
 #include <FS.h>
-static const double VERSION_MAIN    = 7.20,
-                    VERSION_CODE    = 8.65,
-                    VERSION_EXTRA   = 180321;
+#define string String
+static const double VERSION_MAIN    = 7.30,
+                    VERSION_CODE    = 9.23,
+                    VERSION_EXTRA   = 180324;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
 {
@@ -1059,7 +1063,7 @@ class Pin
   private:
     PinMode _mode;
     PinType _type;
-    int _value;
+    string _value;
     bool _pwm;
   public:
     const PinMode mode()
@@ -1070,11 +1074,11 @@ class Pin
     {
       this->_mode = _mode;
     }
-    const int value()
+    const string value()
     {
       return _value;
     }
-    void value(const int& _value)
+    void value(const string& _value)
     {
       this->_value = _value;
     }
@@ -1095,7 +1099,6 @@ class Pin
       this->_type = _type;
       this->_pwm = _pwm;
       this->_mode = _mode;
-      _value = 0;
     }
 };
 
@@ -1240,7 +1243,7 @@ class VirtuinoBoard: public HTTPServlet
           }
           else
           {
-            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _tmp.insert(std::pair<int, string>(_pinId, _pins[_pinId].value()));
             _out.insert(std::pair<int, char>(_pinId, _type));
           }
         }
@@ -1265,7 +1268,7 @@ class VirtuinoBoard: public HTTPServlet
           }
           else
           {
-            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _tmp.insert(std::pair<int, string>(_pinId, _pins[_pinId].value()));
             _out.insert(std::pair<int, char>(_pinId, _type));
           }
         }
@@ -1290,7 +1293,7 @@ class VirtuinoBoard: public HTTPServlet
           }
           else
           {
-            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _tmp.insert(std::pair<int, string>(_pinId, _pins[_pinId].value()));
             _out.insert(std::pair<int, char>(_pinId, _type));
           }
         }
@@ -1315,7 +1318,7 @@ class VirtuinoBoard: public HTTPServlet
           }
           else
           {
-            _tmp.insert(std::pair<int, string>(_pinId, Utils::int2str(_pins[_pinId].value())));
+            _tmp.insert(std::pair<int, string>(_pinId, _pins[_pinId].value()));
             _out.insert(std::pair<int, char>(_pinId, _type));
           }
         }
@@ -1337,7 +1340,7 @@ class VirtuinoBoard: public HTTPServlet
       }
       for (std::map<int, char>::iterator cur = _in.begin(); cur != _in.end(); cur++)
       {
-        _pins[(*cur).first].value(Utils::str2int(_tmp[(*cur).first]));
+        _pins[(*cur).first].value(_tmp[(*cur).first]);
         _out.insert(std::pair<int, char>((*cur).first, (*cur).second));
       }
       _in.clear();
@@ -1356,6 +1359,8 @@ class VirtuinoBoard: public HTTPServlet
         out += fmt.format("[0][1][2][3]=[4][5]");
       }
       fmt.reset();
+      fmt.add(out);
+      Serial.println(fmt.format("[VIRTUINO] Out: [0]"));
       send(out, con);
     }
   public:
@@ -1509,11 +1514,11 @@ class VirtuinoBoard: public HTTPServlet
     /*********
       ReadPin
      *********/
-    static const int readPin(const int& _pinId)
+    static const string readPin(const int& _pinId)
     {
-      return _begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_OUTPUT ? _pins[_pinId].value() : -1;
+      return _begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_OUTPUT ? _pins[_pinId].value() : string();
     }
-    static const int readPin(const PinType& _type, const int& _id)
+    static const string readPin(const PinType& _type, const int& _id)
     {
       switch (_type) {
         case COMMAND:
@@ -1537,17 +1542,17 @@ class VirtuinoBoard: public HTTPServlet
             return readPin(_v_idx + _id);
           break;
       }
-      return -1;
+      return string();
     }
     /**********
       WritePin
      **********/
-    static const void writePin(const int& _pinId, const int& _value)
+    template<typename T> static const void writePin(const int& _pinId, const T& _value)
     {
       if (_begin && _pinId >= 0 && _pinId < _pins.size() && _pins[_pinId].mode() != MODE_INPUT)
-        _pins[_pinId].value(_value);
+        _pins[_pinId].value(string(_value));
     }
-    static void writePin(const PinType& _type, const int& _id, const int& _value)
+    template<typename T> static void writePin(const PinType& _type, const int& _id, const T& _value)
     {
       switch (_type) {
         case COMMAND:
@@ -1579,34 +1584,15 @@ class VirtuinoBoard: public HTTPServlet
     {
       return _begin;
     }
-    static void begin(const BoardType& _board, const string& _pass)
+    static void begin(const string& _pass)
     {
       if (!_begin && _pass.length() > 0)
       {
         int _a_cnt, _d_cnt;
         std::vector<int> _pwm_idx;
-        switch (_board)
+        switch (system_get_chip_id())
         {
-          case ATOM_1:
-            _a_cnt = 0;
-            _d_cnt = 1;
-            break;
-          case MICRO_2:
-            _a_cnt = 1;
-            _d_cnt = 1;
-            break;
-          case MINI_3:
-            _a_cnt = 1;
-            _d_cnt = 2;
-            _pwm_idx.push_back(1);
-            break;
-          case NANO_4:
-            _a_cnt = 1;
-            _d_cnt = 3;
-            for (int i = 1; i < _d_cnt; i++)
-              _pwm_idx.push_back(i);
-            break;
-          case NODEMCU_ESP_12E:
+          case 0x1109b3: //NodeMCU
             _a_cnt = 1;
             _d_cnt = 11;
             _pwm_idx.push_back(5);
@@ -1742,6 +1728,7 @@ class WiFiManager
     static void begin()
     {
       if (_connect_reason) return;
+      WiFi.disconnect(); //Disable auto-connect feature
       Formatter fmt;
       int _cnt = 0, _cnt_reconnect = 0, _info_print_delay = 1000;
       bool _echo = false, _wait = true;
@@ -1966,6 +1953,283 @@ bool        WiFiManager::_connect_reason = false,
             WiFiManager::_secure,
             WiFiManager::_sta_reconnect;
 /**************************************************************************************
+  Sensors
+ *********/
+enum state_t
+{
+  STATE_DISABLED,
+  STATE_IDLE,
+  STATE_PROCESSING
+};
+class Sensor
+{
+  private:
+    uint8_t _addr[8] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  public:
+    const string addr2str()
+    {
+      string out = "";
+      for (int j = 0; j < 8; j++)
+      {
+        if (j != 0) out += ":";
+        if (_addr[j] < 10) out += "0";
+        out += string(_addr[j], HEX);
+      }
+      return out;
+    }
+    const uint8_t addr(const uint8_t _idx)
+    {
+      return _idx >= 0 && _idx < 8 ? _addr[_idx] : -1;
+    }
+    const uint8_t chipId()
+    {
+      return _addr[0];
+    }
+    Sensor(const uint8_t _addr0,
+           const uint8_t _addr1,
+           const uint8_t _addr2,
+           const uint8_t _addr3,
+           const uint8_t _addr4,
+           const uint8_t _addr5,
+           const uint8_t _addr6,
+           const uint8_t _addr7)
+    {
+      _addr[0] = _addr0;
+      _addr[1] = _addr1;
+      _addr[2] = _addr2;
+      _addr[3] = _addr3;
+      _addr[4] = _addr4;
+      _addr[5] = _addr5;
+      _addr[6] = _addr6;
+      _addr[7] = _addr7;
+    }
+    Sensor() {}
+};
+class SensorManager
+{
+  private:
+    static const long _update_delay = 5000;
+    static state_t _state;
+    static uint8_t _gpio, _selected;
+    static long _next_update;
+    static bool _begin_reason;
+    static OneWire* _wire;
+    static std::vector<Sensor> _sensors;
+    SensorManager() {}
+  public:
+    static const state_t state()
+    {
+      return _state;
+    }
+    static const uint8_t size()
+    {
+      return _begin_reason && _state == STATE_IDLE ? _sensors.size() : 0;
+    }
+    static const uint8_t gpio()
+    {
+      return _gpio;
+    }
+    static const Sensor sensor(const uint8_t& _id)
+    {
+      return _id >= 0 && _id < _sensors.size() ? _sensors[_id] : Sensor();
+    }
+    static void printMap(Print& _serial)
+    {
+      Formatter fmt;
+      Serial.println("----- SENSORS MAP -----");
+      if (!_begin_reason) return;
+      for (int i = 0; i < _sensors.size(); i++)
+      {
+        fmt.reset();
+        fmt.add(_gpio < 10 ? "0" : "");
+        fmt.add(_gpio);
+        fmt.add(i < 10 ? "0" : "");
+        fmt.add(i);
+        fmt.add(_sensors[i].addr2str());
+        Serial.println(fmt.format("GPIO | ID |         ADDRESS\n [0][1]    [2][3]   [4]"));
+      }
+    }
+    static void select(const uint8_t& _id)
+    {
+      if (!_begin_reason || _state != STATE_IDLE) return;
+      if (_id >= 0 && _id < _sensors.size() && _id != _selected)
+      {
+        _selected = _id;
+        uint8_t _addr[8], _addr2[8];
+        for (int i = 0; i < 8; i++)
+          _addr[i] = _sensors[_id].addr(i);
+        (*_wire).select(_addr);
+        Formatter fmt;
+        fmt.add(_id);
+        fmt.add(_sensors[_id].addr2str());
+        _state = STATE_PROCESSING;
+      }
+    }
+    static uint8_t reset()
+    {
+      if (!_begin_reason) return -1;
+      _state = STATE_IDLE;
+      _selected = -1;
+      return (*_wire).reset();
+    }
+    static void write(const uint8_t& _data, const bool& _pw)
+    {
+      if (!_begin_reason || _state != STATE_PROCESSING || _selected < 0) return;
+      if (_pw)
+        (*_wire).write(_data, 1);
+      else (*_wire).write(_data);
+    }
+    static uint8_t read()
+    {
+      return _begin_reason && _state == STATE_PROCESSING ? (*_wire).read() : -1;
+    }
+    static void update()
+    {
+      if (!_begin_reason || _state != STATE_IDLE || millis() < _next_update) {
+        Serial.println("[SensorManager] update failed: not now!");
+        return;
+      }
+      _state = STATE_PROCESSING;
+      _sensors.clear();
+      uint8_t addr[8];
+      (*_wire).reset_search();
+      Formatter fmt;
+      while ((*_wire).search(addr))
+      {
+        fmt.reset();
+        fmt.add(_sensors.size());
+        Sensor s(addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], addr[6], addr[7]);
+        fmt.add(s.addr2str());
+        _sensors.push_back(s);
+        Serial.println(fmt.format("[SensorManager] Sensor [0]: [1]"));
+      }
+      _next_update += _update_delay;
+      _state = STATE_IDLE;
+    }
+    static void begin(const uint8_t& _gpio)
+    {
+      if (_begin_reason) return;
+      _begin_reason = true;
+      SensorManager::_gpio = _gpio;
+      _wire = new OneWire(_gpio);
+      _state = STATE_IDLE;
+      update();
+    }
+    static void end()
+    {
+      if (!_begin_reason) return;
+      while (_state != STATE_IDLE) {}
+      (*_wire).reset();
+      _sensors.clear();
+      _begin_reason = false;
+    }
+};
+state_t   SensorManager::_state         = STATE_DISABLED;
+uint8_t   SensorManager::_gpio,
+          SensorManager::_selected      = -1;
+long      SensorManager::_next_update;
+bool      SensorManager::_begin_reason  = false;
+OneWire*  SensorManager::_wire;
+std::vector<Sensor> SensorManager::_sensors;
+
+class DallasMonitor
+{
+  private:
+    static const long _update_delay = 1250;
+    static state_t _state;
+    static long _next_update;
+    static std::vector<uint8_t> _sensor_idx;
+    static std::vector<float> _temps;
+    static bool _begin_reason;
+    DallasMonitor() {}
+  public:
+    static const float tempC(const uint8_t& _id)
+    {
+      return _begin_reason && _state == STATE_IDLE && _id >= 0 && _id < _temps.size() ? _temps[_id] : -127;
+    }
+    static const float tempF(const uint8_t& _id)
+    {
+      return _begin_reason && _state == STATE_IDLE && _id >= 0 && _id < _temps.size() ? _temps[_id] * 1.8 + 32 : -127;
+    }
+    static const uint8_t size()
+    {
+      return _sensor_idx.size();
+    }
+    static void update()
+    {
+      if (!_begin_reason || millis() < _next_update || _state != STATE_IDLE) {
+        return;
+      }
+      _state = STATE_PROCESSING;
+      _sensor_idx.clear();
+      _temps.clear();
+      for (int i = 0; i < SensorManager::size(); i++)
+      {
+        Sensor s = SensorManager::sensor(i);
+        bool _s = false;
+        uint8_t _present = 0;
+        uint8_t _data[12];
+        if (s.chipId() != 0x10 && s.chipId() != 0x22 && s.chipId() != 0x28)
+          continue;
+        _sensor_idx.push_back(i);
+        if (s.chipId() == 0x10) _s = true;
+        SensorManager::reset();
+        SensorManager::select(i);
+        SensorManager::write(0x44, true);
+        //delay(500);
+        _present = SensorManager::reset();
+        SensorManager::select(i);
+        SensorManager::write(0xBE, false);
+        for (int i = 0; i < 9; i++)
+          _data[i] = SensorManager::read();
+        uint16_t raw = (_data[1] << 8) | _data[0];
+        if (_s)
+        {
+          raw = raw << 3;
+          if (_data[7] == 0x10) raw = (raw & 0xFFF0) + 12 - _data[6];
+        }
+        else
+        {
+          uint8_t cfg = (_data[4] & 0x60);
+          if (cfg == 0x00) raw = raw & ~7;
+          else if (cfg == 0x20) raw = raw & ~3;
+          else if (cfg == 0x40) raw = raw & ~1;
+        }
+        float celsius = (float)raw / 16.0;
+        _temps.push_back(celsius);
+      }
+      _next_update += _update_delay;
+      _state = STATE_IDLE;
+      SensorManager::reset();
+    }
+    static void begin()
+    {
+      if (_begin_reason) return;
+      if (SensorManager::state() == STATE_DISABLED)
+      {
+        Serial.println("[DallasMonitor] begin failed: SensorManager is disabled!");
+        _sensor_idx.clear();
+        _begin_reason = false;
+        return;
+      }
+      _begin_reason = true;
+      _state = STATE_IDLE;
+      update();
+    }
+    static void end()
+    {
+      if (!_begin_reason) return;
+      _state = STATE_DISABLED;
+      _sensor_idx.clear();
+      _temps.clear();
+    }
+};
+state_t DallasMonitor::_state = STATE_DISABLED;
+long DallasMonitor::_next_update;
+bool DallasMonitor::_begin_reason = false;
+std::vector<uint8_t> DallasMonitor::_sensor_idx;
+std::vector<float> DallasMonitor::_temps;
+/**************************************************************************************
   Sketch
  ********/
 class PageRootIndex: public HTTPServlet
@@ -1983,30 +2247,27 @@ class PageRootIndex: public HTTPServlet
       con.send("text/html", fmt.format("<html><head><title>[0]</title></head><body><h1>[0]</h1></body></html>"));
     }
 };
-static const string                 _wlan_ssid                    = "<ssid>",
-                                    _wlan_pass                    = "<pass>",
-                                    _virtuino_pass                = "1234";
-static const int                    _http_port                    = 80,
-                                    _onewire_pin                  = D0,
-                                    _virtuino_sensors_start_d_pin = 0;
-static const BoardType              _virtuino_board               = NODEMCU_ESP_12E;
-static PageRootIndex                _page_root_index;
-static VirtuinoBoard                _virtuino;
+static const string   _wlan_ssid                    = "internet",
+                      _wlan_pass                    = "CAG3N3A4",
+                      _virtuino_pass                = "1234";
+static const int      _http_port                    = 80,
+                      _sensors_pin                  = D1,
+                      _virtuino_sensors_start_d_pin = 0;
+static PageRootIndex  _page_root_index;
+static VirtuinoBoard  _virtuino;
 static HTTPServer _server(_http_port);
-static OneWire ow(_onewire_pin);
-static DallasTemperature _sensors(&ow);
-static std::vector<DeviceAddress*>  _sensors_addr;
-static std::vector<float>           _sensors_last_t;
-static long                         _rnd_next_update              = millis(),
-                                    _rnd_delay                    = 5000,     //! 5 sec
-                                    _led_next_update              = millis(),
-                                    _led_delay                    = 10000,    //! 10 sec
-                                    _btn_next_update              = millis(),
-                                    _btn_delay                    = 500,      //! 0.5 sec
-                                    _sensors_next_update          = millis(),
-                                    _sensors_delay                = 1000;     //! 1 sec
-static bool                         _blink                        = false,
-                                    _enable                       = false;
+
+static long _rnd_next_update,
+       _rnd_delay             = 5000,     //! 5 sec
+       _led_next_update,
+       _led_delay             = 10000,    //! 10 sec
+       _btn_next_update,
+       _btn_delay             = 500,      //! 0.5 sec
+       _sensors_next_update,
+       _sensors_delay         = 1000;     //! 1 sec
+
+static bool _blink = false;
+
 void setup() {
   /***********
     Pre-Setup
@@ -2026,70 +2287,24 @@ void setup() {
       Virtuino
      **********/
     //! 1. Begin using board
-    VirtuinoBoard::begin(_virtuino_board, _virtuino_pass);
+    VirtuinoBoard::begin(_virtuino_pass);
     if (VirtuinoBoard::ready())
     {
       //! 2.1 Set V00 mode as OUTPUT
       VirtuinoBoard::pinMode(VIRTUAL, 0, MODE_OUTPUT);
       //! 2.2 Set V01 mode as OUTPUT
       VirtuinoBoard::pinMode(VIRTUAL, 1, MODE_OUTPUT);
-      //! 2.3 Set V02 mode as INPUT
-      VirtuinoBoard::pinMode(VIRTUAL, 2, MODE_INPUT);
       //! 3. Install virtuino class as servlet
       _server.install(VIRTUINO_PATH, &_virtuino);
     }
     /*********
       Sensors
      *********/
-    _sensors.begin();
-    Formatter fmt;
-    _sensors.requestTemperatures();
-    int cnt = _sensors.getDeviceCount() + 1; //Added virtual sensor (lasted pin)
-    fmt.add(cnt);
-    fmt.add(_sensors.isParasitePowerMode() ? "on" : "off");
-    Serial.println(fmt.format("[Sensors] Detected [0] device(s), parasite power is [1]"));
-    if (cnt > 0)
-    {
-      Serial.println("------- SENSORS MAP -------\n ID |      ADDRESS      | TEMP (C/F)");
-      for (int i = 0; i < cnt; i++)
-      {
-        if (VirtuinoBoard::ready()) {
-          VirtuinoBoard::pinMode(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, MODE_OUTPUT);
-        }
-        fmt.reset();
-        fmt.add(i < 10 ? "0" : "");
-        fmt.add(i);
-        DeviceAddress da;
-        bool detect = _sensors.getAddress(da, i);
-        if (!detect) {
-          fmt.add("??:??:??:??:??:??");
-          _sensors_addr.push_back(NULL);
-        }
-        else
-        {
-          string out;
-          for (int i = 0; i < 8; i+=2)
-          {
-            if (i != 0) out += ":";
-            if (da[i] < 16) out += "0";
-            out += string(da[i], HEX);
-            if (da[i+1] < 16) out += "0";
-            out += string(da[i+1], HEX);
-          }
-          fmt.add(out);
-          _sensors_addr.push_back(&da);
-        }
-
-        float t = detect ? _sensors.getTempC(da) : -127 + (rand() % 256);
-        if (VirtuinoBoard::ready())
-          VirtuinoBoard::writePin(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, t);
-        _sensors_last_t.push_back(t);
-        fmt.add(t);
-        fmt.add(DallasTemperature::toFahrenheit(t));
-        Serial.println(fmt.format(" [0][1]   [2]   [3]/[4]"));
-      }
-    }
-    fmt.reset();
+    SensorManager::begin(_sensors_pin);
+    SensorManager::printMap(Serial);
+    DallasMonitor::begin();
+    for (int i = 0; i < DallasMonitor::size(); i++)
+      VirtuinoBoard::pinMode(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, MODE_OUTPUT);
     /************
       Post-Setup
      ************/
@@ -2099,52 +2314,33 @@ void setup() {
 }
 void loop() {
   _server.waitFor();
-  bool change_reason = false;
-  /*******************************************
-    Virtuino Button Checker, CMD: !V02=<0|1>$
-   *******************************************/
-  if (VirtuinoBoard::ready() && millis() >= _btn_next_update)
-  {
-    _btn_next_update += _btn_delay;
-    bool last_enable = _enable;
-    _enable = VirtuinoBoard::readPin(VIRTUAL, 2) == 1;
-    change_reason = last_enable != _enable;
-  }
   /***************************************
     Virtuino Random Example, CMD: !V00=?$
    ***************************************/
-  if (VirtuinoBoard::ready() && (millis() >= _rnd_next_update || change_reason))
+  if (VirtuinoBoard::ready() && millis() >= _rnd_next_update)
   {
     _rnd_next_update += _rnd_delay;
-    VirtuinoBoard::writePin(VIRTUAL, 0 , _enable ? rand() % 255 : 0); //! 0...255
+    VirtuinoBoard::writePin(VIRTUAL, 0 , rand() % 255); //! 0...255
   }
   /************************************************
     Virtuino Board LED Blink Example, CMD: !V01=?$
    ************************************************/
-  if (VirtuinoBoard::ready() && (millis() >= _led_next_update || change_reason))
+  if (VirtuinoBoard::ready() && millis() >= _led_next_update)
   {
     _led_next_update += _led_delay;
-    _blink = _enable ? !_blink : false;
+    _blink = !_blink;
     VirtuinoBoard::writePin(VIRTUAL, 1 , _blink); //! 0-OFF, 1-ON
   }
   /***************************************************************
     Sensors Temperature Example , CMD: !D00...D<sensors_cnt-1>=?$
    ***************************************************************/
-  if (VirtuinoBoard::ready() && (millis() >= _sensors_next_update || change_reason))
+  if (VirtuinoBoard::ready() && millis() >= _sensors_next_update)
   {
     _sensors_next_update += _sensors_delay;
-    if (_enable) _sensors.requestTemperatures();
-    for (int i = 0; i < _sensors_addr.size(); i++)
+    DallasMonitor::update();
+    for (int i = 0; i < DallasMonitor::size(); i++)
     {
-      if (_enable)
-      {
-        float _t = _sensors_addr[i] != NULL ? _sensors.getTempC(*(_sensors_addr[i])) : -127 + (rand() % 256),
-              _last = _sensors_last_t[i];
-        if (_t != _last) {
-          _sensors_last_t[i] = _t;
-        }
-      }
-      VirtuinoBoard::writePin(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, _enable ? _sensors_last_t[i] : 0);
+      VirtuinoBoard::writePin(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, (float)DallasMonitor::tempC(i));
     }
   }
 }
