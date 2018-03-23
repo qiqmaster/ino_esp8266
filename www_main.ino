@@ -14,7 +14,7 @@ extern "C" {
 #include <FS.h>
 #define string String
 static const double VERSION_MAIN    = 7.30,
-                    VERSION_CODE    = 9.23,
+                    VERSION_CODE    = 9.31,
                     VERSION_EXTRA   = 180324;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -2036,8 +2036,9 @@ class SensorManager
     static void printMap(Print& _serial)
     {
       Formatter fmt;
-      Serial.println("----- SENSORS MAP -----");
+      Serial.println("----- SENSORS MAP -----\nGPIO | ID |         ADDRESS");
       if (!_begin_reason) return;
+      
       for (int i = 0; i < _sensors.size(); i++)
       {
         fmt.reset();
@@ -2046,7 +2047,7 @@ class SensorManager
         fmt.add(i < 10 ? "0" : "");
         fmt.add(i);
         fmt.add(_sensors[i].addr2str());
-        Serial.println(fmt.format("GPIO | ID |         ADDRESS\n [0][1]    [2][3]   [4]"));
+        Serial.println(fmt.format("[0][1]    [2][3]   [4]"));
       }
     }
     static void select(const uint8_t& _id)
