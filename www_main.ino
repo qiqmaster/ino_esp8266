@@ -14,7 +14,7 @@ extern "C" {
 #include <FS.h>
 #define string String
 static const double VERSION_MAIN    = 7.30,
-                    VERSION_CODE    = 9.31,
+                    VERSION_CODE    = 9.32,
                     VERSION_EXTRA   = 180324;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1052,10 +1052,7 @@ enum PinType
 };
 enum BoardType
 {
-  ATOM_1,
-  MICRO_2,
-  MINI_3,
-  NANO_4,
+  WEMOS_D1_MINI,
   NODEMCU_ESP_12E
 };
 class Pin
@@ -1584,7 +1581,7 @@ class VirtuinoBoard: public HTTPServlet
     {
       return _begin;
     }
-    static void begin(const string& _pass)
+    static void begin(const BoardType& _type, const string& _pass)
     {
       if (!_begin && _pass.length() > 0)
       {
@@ -1592,10 +1589,14 @@ class VirtuinoBoard: public HTTPServlet
         std::vector<int> _pwm_idx;
         switch (system_get_chip_id())
         {
-          case 0x1109b3: //NodeMCU
+          case NODEMCU_ESP_12E: //NodeMCU
             _a_cnt = 1;
             _d_cnt = 11;
             _pwm_idx.push_back(5);
+            break;
+          case WEMOS_D1_MINI:
+            _a_cnt = 1;
+            _d_cnt = 9;
             break;
           default:
             Serial.println("[VIRTUINO] begin failed: unknown board type!");
@@ -2038,7 +2039,7 @@ class SensorManager
       Formatter fmt;
       Serial.println("----- SENSORS MAP -----\nGPIO | ID |         ADDRESS");
       if (!_begin_reason) return;
-      
+
       for (int i = 0; i < _sensors.size(); i++)
       {
         fmt.reset();
@@ -2248,26 +2249,25 @@ class PageRootIndex: public HTTPServlet
       con.send("text/html", fmt.format("<html><head><title>[0]</title></head><body><h1>[0]</h1></body></html>"));
     }
 };
-static const string   _wlan_ssid                    = "<ssid>",
-                      _wlan_pass                    = "<pass>",
-                      _virtuino_pass                = "1234";
-static const int      _http_port                    = 80,
-                      _sensors_pin                  = D1,
-                      _virtuino_sensors_start_d_pin = 0;
-static PageRootIndex  _page_root_index;
-static VirtuinoBoard  _virtuino;
-static HTTPServer _server(_http_port);
-
-static long _rnd_next_update,
-       _rnd_delay             = 5000,     //! 5 sec
-       _led_next_update,
-       _led_delay             = 10000,    //! 10 sec
-       _btn_next_update,
-       _btn_delay             = 500,      //! 0.5 sec
-       _sensors_next_update,
-       _sensors_delay         = 1000;     //! 1 sec
-
-static bool _blink = false;
+static const string     _wlan_ssid                    = "<ssid>",
+                        _wlan_pass                    = "<pass>",
+                        _virtuino_pass                = "1234";
+static const int        _http_port                    = 80,
+                        _sensors_pin                  = D1,
+                        _virtuino_sensors_start_d_pin = 0;
+static const BoardType  _virtuino_board               = NODEMCU_ESP_12E;
+static PageRootIndex    _page_root_index;
+static VirtuinoBoard    _virtuino;
+static HTTPServer       _server(_http_port);
+static long             _rnd_delay                    = 5000,     //! 5 sec
+                        _rnd_next_update,
+                        _led_delay                    = 10000,    //! 10 sec
+                        _led_next_update,
+                        _btn_delay                    = 500,      //! 0.5 sec
+                        _btn_next_update,
+                        _sensors_delay                = 1000,     //! 1 sec
+                        _sensors_next_update;
+static bool             _blink                        = false;
 
 void setup() {
   /***********
@@ -2288,7 +2288,7 @@ void setup() {
       Virtuino
      **********/
     //! 1. Begin using board
-    VirtuinoBoard::begin(_virtuino_pass);
+    VirtuinoBoard::begin(_virtuino_board, _virtuino_pass);
     if (VirtuinoBoard::ready())
     {
       //! 2.1 Set V00 mode as OUTPUT
