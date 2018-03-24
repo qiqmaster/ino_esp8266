@@ -14,7 +14,7 @@ extern "C" {
 #include <FS.h>
 #define string String
 static const double VERSION_MAIN    = 7.30,
-                    VERSION_CODE    = 9.32,
+                    VERSION_CODE    = 9.33,
                     VERSION_EXTRA   = 180324;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -1587,7 +1587,7 @@ class VirtuinoBoard: public HTTPServlet
       {
         int _a_cnt, _d_cnt;
         std::vector<int> _pwm_idx;
-        switch (system_get_chip_id())
+        switch (_type)
         {
           case NODEMCU_ESP_12E: //NodeMCU
             _a_cnt = 1;
