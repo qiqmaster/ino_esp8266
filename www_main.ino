@@ -14,7 +14,7 @@ extern "C" {
 #include <FS.h>
 #define string String
 static const double VERSION_MAIN    = 7.30,
-                    VERSION_CODE    = 9.33,
+                    VERSION_CODE    = 9.34,
                     VERSION_EXTRA   = 180324;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -2048,7 +2048,7 @@ class SensorManager
         fmt.add(i < 10 ? "0" : "");
         fmt.add(i);
         fmt.add(_sensors[i].addr2str());
-        Serial.println(fmt.format("[0][1]    [2][3]   [4]"));
+        Serial.println(fmt.format(" [0][1]    [2][3]   [4]"));
       }
     }
     static void select(const uint8_t& _id)
@@ -2069,7 +2069,7 @@ class SensorManager
     }
     static uint8_t reset()
     {
-      if (!_begin_reason) return -1;
+      if (!_begin_reason || _state!=STATE_PROCESSING) return -1;
       _state = STATE_IDLE;
       _selected = -1;
       return (*_wire).reset();
@@ -2165,6 +2165,7 @@ class DallasMonitor
       _state = STATE_PROCESSING;
       _sensor_idx.clear();
       _temps.clear();
+      Formatter fmt;
       for (int i = 0; i < SensorManager::size(); i++)
       {
         Sensor s = SensorManager::sensor(i);
@@ -2173,6 +2174,10 @@ class DallasMonitor
         uint8_t _data[12];
         if (s.chipId() != 0x10 && s.chipId() != 0x22 && s.chipId() != 0x28)
           continue;
+        fmt.reset();
+        fmt.add(i);
+        fmt.add(s.addr2str());
+        Serial.println(fmt.format("[DallasMonitor] Using sensor [0] ([1])"));
         _sensor_idx.push_back(i);
         if (s.chipId() == 0x10) _s = true;
         SensorManager::reset();
@@ -2203,6 +2208,9 @@ class DallasMonitor
       _next_update += _update_delay;
       _state = STATE_IDLE;
       SensorManager::reset();
+      fmt.reset();
+      fmt.add(_sensor_idx.size());
+      Serial.println(fmt.format("[DallasMonitor] Total sensors detected: [0]"));
     }
     static void begin()
     {
@@ -2217,6 +2225,8 @@ class DallasMonitor
       _begin_reason = true;
       _state = STATE_IDLE;
       update();
+      Formatter fmt;
+      fmt.add(_sensor_idx.size());
     }
     static void end()
     {
@@ -2275,6 +2285,8 @@ void setup() {
    ***********/
   delay(1000);
   Serial.begin(115200);
+  Serial.print("\n\nBoard chip id: 0x");
+  Serial.println(system_get_chip_id(),HEX);
   //Serial.setDebugOutput(true);
   NanoFS::mount();
   //WiFiManager::beginAP();
@@ -2339,9 +2351,7 @@ void loop() {
   {
     _sensors_next_update += _sensors_delay;
     DallasMonitor::update();
-    for (int i = 0; i < DallasMonitor::size(); i++)
-    {
+    for (int i = 0; i < DallasMonitor::size(); i++)    
       VirtuinoBoard::writePin(DIGITAL_VIRTUAL, _virtuino_sensors_start_d_pin + i, (float)DallasMonitor::tempC(i));
-    }
   }
 }
