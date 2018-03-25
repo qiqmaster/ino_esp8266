@@ -1096,6 +1096,7 @@ class Pin
       this->_type = _type;
       this->_pwm = _pwm;
       this->_mode = _mode;
+      _value = "0";
     }
 };
 
