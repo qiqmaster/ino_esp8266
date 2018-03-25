@@ -14,8 +14,8 @@ extern "C" {
 #include <FS.h>
 #define string String
 static const double VERSION_MAIN    = 7.30,
-                    VERSION_CODE    = 9.34,
-                    VERSION_EXTRA   = 180324;
+                    VERSION_CODE    = 9.35,
+                    VERSION_EXTRA   = 180325;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
 {
@@ -2203,6 +2203,10 @@ class DallasMonitor
           else if (cfg == 0x40) raw = raw & ~1;
         }
         float celsius = (float)raw / 16.0;
+        fmt.reset();
+        fmt.add(i);
+        fmt.add(celsius);
+        Serial.println(fmt.format("[DallasMonitor] Sensor [0] temperature: [1]'C"));
         _temps.push_back(celsius);
       }
       _next_update += _update_delay;
