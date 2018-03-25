@@ -14,7 +14,7 @@ extern "C" {
 #include <FS.h>
 #define string String
 static const double VERSION_MAIN    = 7.30,
-                    VERSION_CODE    = 9.35,
+                    VERSION_CODE    = 9.36,
                     VERSION_EXTRA   = 180325;
 static const string VERSION_PREFIX  = "-perf";
 static const string versionString()
@@ -2163,22 +2163,14 @@ class DallasMonitor
         return;
       }
       _state = STATE_PROCESSING;
-      _sensor_idx.clear();
       _temps.clear();
       Formatter fmt;
-      for (int i = 0; i < SensorManager::size(); i++)
+      for (int i = 0; i < _sensor_idx.size(); i++)
       {
-        Sensor s = SensorManager::sensor(i);
+        Sensor s = SensorManager::sensor(_sensor_idx[i]);
         bool _s = false;
         uint8_t _present = 0;
         uint8_t _data[12];
-        if (s.chipId() != 0x10 && s.chipId() != 0x22 && s.chipId() != 0x28)
-          continue;
-        fmt.reset();
-        fmt.add(i);
-        fmt.add(s.addr2str());
-        Serial.println(fmt.format("[DallasMonitor] Using sensor [0] ([1])"));
-        _sensor_idx.push_back(i);
         if (s.chipId() == 0x10) _s = true;
         SensorManager::reset();
         SensorManager::select(i);
@@ -2205,16 +2197,14 @@ class DallasMonitor
         float celsius = (float)raw / 16.0;
         fmt.reset();
         fmt.add(i);
+        fmt.add(s.addr2str());
         fmt.add(celsius);
-        Serial.println(fmt.format("[DallasMonitor] Sensor [0] temperature: [1]'C"));
+        Serial.println(fmt.format("[DallasMonitor] Sensor [0] ([1]) temperature: [2]'C"));
         _temps.push_back(celsius);
       }
       _next_update += _update_delay;
       _state = STATE_IDLE;
       SensorManager::reset();
-      fmt.reset();
-      fmt.add(_sensor_idx.size());
-      Serial.println(fmt.format("[DallasMonitor] Total sensors detected: [0]"));
     }
     static void begin()
     {
@@ -2226,11 +2216,24 @@ class DallasMonitor
         _begin_reason = false;
         return;
       }
+      Formatter fmt;
+      for(int i=0;i<SensorManager::size();i++)
+      {
+        Sensor s = SensorManager::sensor(i);
+        if (s.chipId() != 0x10 && s.chipId() != 0x22 && s.chipId() != 0x28)
+          continue;
+        fmt.reset();
+        fmt.add(i);
+        fmt.add(s.addr2str());
+        Serial.println(fmt.format("[DallasMonitor] Using sensor [0] ([1])"));
+        _sensor_idx.push_back(i);
+      }
+      fmt.reset();
+      fmt.add(_sensor_idx.size());
+      Serial.println(fmt.format("[DallasMonitor] Total sensors detected: [0]"));
       _begin_reason = true;
       _state = STATE_IDLE;
       update();
-      Formatter fmt;
-      fmt.add(_sensor_idx.size());
     }
     static void end()
     {
